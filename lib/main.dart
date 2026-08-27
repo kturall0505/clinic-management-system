@@ -7,10 +7,15 @@ import 'core/repositories/repositories.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/license_service.dart';
 import 'core/services/sync_service.dart';
+import 'core/services/payment_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/ai_service.dart';
+import 'core/theme/app_theme.dart';
 import 'ui/home_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   final db = await AppDatabase.open(AppConfig.defaultTenantId);
   final users = UserRepository(db);
   final patients = PatientRepository(db);
@@ -26,9 +31,17 @@ void main() async {
     tenantId: AppConfig.defaultTenantId,
     licenseServerUrl: AppConfig.licenseServerUrl,
   );
-  await license.initialize();
+  unawaited(license.initialize());
 
   final sync = SyncService(
+    supabaseUrl: AppConfig.supabaseUrl,
+    supabaseAnonKey: AppConfig.supabaseAnonKey,
+  );
+
+  final notifications = NotificationService();
+  unawaited(notifications.initialize());
+
+  final paymentService = PaymentService(
     supabaseUrl: AppConfig.supabaseUrl,
     supabaseAnonKey: AppConfig.supabaseAnonKey,
   );
@@ -46,6 +59,8 @@ void main() async {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: license),
         Provider.value(value: sync),
+        Provider.value(value: notifications),
+        Provider.value(value: paymentService),
       ],
       child: const ClinicApp(),
     ),
@@ -61,7 +76,8 @@ class ClinicApp extends StatelessWidget {
       create: (_) => AiService(endpoint: AppConfig.aiEndpoint),
       child: MaterialApp(
         title: AppConfig.appName,
-        theme: ThemeData(primarySwatch: Colors.blue),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
         home: const DefaultTabController(
           length: 5,
           child: HomeShell(),

@@ -1,12 +1,15 @@
 #include <windows.h>
 
+#include "flutter/generated_plugin_registrant.h"
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
   switch (message) {
     case WM_DESTROY:
       PostQuitMessage(0);
       return 0;
+    default:
+      return DefWindowProc(hWnd, message, wParam, lParam);
   }
-  return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 namespace flutter {

@@ -1,6 +1,8 @@
 #include <windows.h>
 
-#include "flutter/generated_plugin_registrant.h"
+#include <flutter_windows.h>
+
+#include "utils.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
@@ -14,13 +16,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(arguments);
 
   ::SetConsoleOutputCP(CP_UTF8);
-
   ::SetConsoleCP(CP_UTF8);
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.CreateAndShow(L"clinic_management", origin, size)) {
+  if (!window.CreateAndShow(L"Tibb Klinika", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

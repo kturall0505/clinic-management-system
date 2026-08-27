@@ -1,21 +1,24 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../exceptions/app_exception.dart';
+
 enum LicenseState { valid, graceExpired, unknown }
 
 class LicenseService extends ChangeNotifier {
+  static const String _lastCheckKey = 'license_last_success';
+  static const String _firstRunKey = 'license_first_run';
+
   LicenseService({
     required this.tenantId,
     required this.licenseServerUrl,
     http.Client? client,
     this.gracePeriod = const Duration(hours: 24),
   }) : _client = client ?? http.Client();
-
-  static const _lastCheckKey = 'license_last_success';
-  static const _firstRunKey = 'license_first_run';
 
   final String tenantId;
   final String licenseServerUrl;
@@ -24,52 +27,87 @@ class LicenseService extends ChangeNotifier {
 
   LicenseState _state = LicenseState.unknown;
   DateTime? _lastSuccess;
+  String? _lastError;
 
   LicenseState get state => _state;
   DateTime? get lastSuccess => _lastSuccess;
+  String? get lastError => _lastError;
+  bool get isExpired => _state == LicenseState.graceExpired;
 
   Future<void> initialize() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_lastCheckKey);
-    _lastSuccess = stored == null ? null : DateTime.tryParse(stored);
-    if (_lastSuccess == null) {
-      final firstRun = prefs.getString(_firstRunKey);
-      if (firstRun == null) {
-        await prefs.setString(
-            _firstRunKey, DateTime.now().toIso8601String());
-        _lastSuccess = DateTime.now();
-      } else {
-        _lastSuccess = DateTime.tryParse(firstRun);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_lastCheckKey);
+      _lastSuccess = stored == null ? null : DateTime.tryParse(stored);
+
+      if (_lastSuccess == null) {
+        final firstRun = prefs.getString(_firstRunKey);
+        if (firstRun == null) {
+          await prefs.setString(_firstRunKey, DateTime.now().toIso8601String());
+          _lastSuccess = DateTime.now();
+        } else {
+          _lastSuccess = DateTime.tryParse(firstRun);
+        }
       }
+
+      await checkNow();
+    } on Exception catch (e) {
+      _lastError = 'Lisenziya xidməti başladılması uğursuz oldu: $e';
+      _recomputeState();
+      notifyListeners();
     }
-    await checkNow();
   }
 
   Future<void> checkNow() async {
-    final succeeded = await _sendHeartbeat();
-    if (succeeded) {
-      _lastSuccess = DateTime.now();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_lastCheckKey, _lastSuccess!.toIso8601String());
+    try {
+      final succeeded = await _sendHeartbeat();
+      if (succeeded) {
+        _lastSuccess = DateTime.now();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_lastCheckKey, _lastSuccess!.toIso8601String());
+        _lastError = null;
+      } else {
+        _lastError = 'Lisenziya serverinə qoşulmaq olmadı';
+      }
+    } on SocketException catch (e) {
+      _lastError = 'İnternet bağlantısı yoxdur: ${e.message}';
+    } on HttpException catch (e) {
+      _lastError = 'HTTP xətası: ${e.message}';
+    } on FormatException catch (e) {
+      _lastError = 'Server cavabı düzgün deyil: ${e.message}';
+    } on Exception catch (e) {
+      _lastError = 'Gözlənilməz xəta: $e';
     }
+
     _recomputeState();
     notifyListeners();
   }
 
   Future<bool> _sendHeartbeat() async {
+    if (licenseServerUrl.isEmpty) {
+      _lastError = 'Lisenziya server URL-i təyin edilməyib';
+      return false;
+    }
+
     try {
+      final uri = Uri.parse('$licenseServerUrl/heartbeat');
       final response = await _client
           .post(
-            Uri.parse('$licenseServerUrl/heartbeat'),
+            uri,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'tenantId': tenantId,
               'timestamp': DateTime.now().toIso8601String(),
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 15));
+
       return response.statusCode == 200;
-    } catch (_) {
+    } on TimeoutException catch (_) {
+      _lastError = 'Sorğu vaxt limitini keçdi';
+      return false;
+    } on Exception catch (e) {
+      _lastError = 'Xəta: $e';
       return false;
     }
   }
@@ -83,5 +121,11 @@ class LicenseService extends ChangeNotifier {
     } else {
       _state = LicenseState.valid;
     }
+  }
+
+  @override
+  void dispose() {
+    _client.close();
+    super.dispose();
   }
 }

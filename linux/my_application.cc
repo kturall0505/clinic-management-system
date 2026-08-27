@@ -16,10 +16,9 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
-  GtkWindow* window =
-      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  GtkWindow* window = GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  gtk_window_set_title(window, "clinic_management");
+  gtk_window_set_title(window, "Tibb Klinika");
   gtk_window_set_default_size(window, 1280, 720);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
@@ -42,6 +41,6 @@ static void my_application_class_init(MyApplicationClass* klass) {
 static void my_application_init(MyApplication* self) {}
 
 MyApplication* my_application_new(char** argv) {
-  return g_object_new(MY_APPLICATION_TYPE, "application-id", "com.example.clinic_management",
+  return g_object_new(MY_APPLICATION_TYPE, "application-id", "az.clinic.clinic_management",
       "flags", G_APPLICATION_FLAGS_NONE, NULL);
 }

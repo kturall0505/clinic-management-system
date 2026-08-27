@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
+
+import '../../exceptions/app_exception.dart';
 
 class AiService {
   AiService({this.endpoint, http.Client? client})
@@ -10,6 +13,11 @@ class AiService {
   final http.Client _client;
 
   Future<String> ask(String question) async {
+    final trimmed = question.trim();
+    if (trimmed.isEmpty) {
+      throw const ValidationException('Sual boş ola bilməz');
+    }
+
     final url = endpoint;
     if (url != null && url.isNotEmpty) {
       try {
@@ -17,19 +25,33 @@ class AiService {
             .post(
               Uri.parse(url),
               headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'question': question}),
+              body: jsonEncode({'question': trimmed}),
             )
             .timeout(const Duration(seconds: 20));
+
         if (response.statusCode == 200) {
           final body = jsonDecode(response.body) as Map<String, dynamic>;
           final answer = body['answer'];
-          if (answer is String && answer.isNotEmpty) return answer;
+          if (answer is String && answer.isNotEmpty) {
+            return answer;
+          }
         }
-      } catch (_) {
-        // fall through to offline answers
+
+        if (response.statusCode >= 500) {
+          throw NetworkException('AI server xətası (${response.statusCode})');
+        }
+      } on TimeoutException catch (_) {
+        debugPrint('AI request timed out, falling back to offline');
+      } on SocketException catch (_) {
+        debugPrint('AI network error, falling back to offline');
+      } on FormatException catch (e) {
+        debugPrint('AI response parse error: $e');
+      } on Exception catch (e) {
+        debugPrint('AI request failed: $e');
       }
     }
-    return _offlineAnswer(question);
+
+    return _offlineAnswer(trimmed);
   }
 
   String _offlineAnswer(String question) {
@@ -50,7 +72,15 @@ class AiService {
       return 'Sistem lokal işləyir, lakin gündə bir dəfə lisenziya serveri ilə '
           'əlaqə tələb olunur. Klinika məlumatları heç vaxt kənara ötürülmür.';
     }
-    return 'Sualınızı daha dəqiq yazın: randevu, pasient, həkim və ya '
-        'lisenziya mövzularında kömək edə bilərəm.';
+    if (q.contains('ödəniş') || q.contains('pul')) {
+      return 'Ödənişlər "Maliyyə" bölməsində izlənir. Nağd, POS və sığorta '
+          'ödənişləri qeyd edilə bilər.';
+    }
+    if (q.contains('resept') || q.contains('dərman')) {
+      return 'Elektron resept həkim panelindən yaradılır. Dərmanlar bazası '
+          'inteqrasiyası ilə yan təsir yoxlaması aparılır.';
+    }
+    return 'Sualınızı daha dəqiq yazın: randevu, pasient, həkim, lisenziya, '
+        'ödəniş və ya resept mövzularında kömək edə bilərəm.';
   }
 }

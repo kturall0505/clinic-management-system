@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../core/models/models.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
+import '../../core/models/models.dart';
 
 class DoctorsScreen extends StatefulWidget {
   const DoctorsScreen({super.key});
@@ -19,101 +20,227 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
   final _scheduleController = TextEditingController();
   final _experienceController = TextEditingController();
 
+  bool _isSaving = false;
+  String? _errorMessage;
+
   Future<void> _addDoctor() async {
     if (_nameController.text.isEmpty) return;
-    final repo = context.read<DoctorRepository>();
-    await repo.save(Doctor(
-      fullName: _nameController.text,
-      specialty: _specialtyController.text,
-      phone: _phoneController.text,
-      consultationFee: double.tryParse(_feeController.text) ?? 0,
-      schedule: _scheduleController.text,
-      experience: _experienceController.text,
-    ));
-    _nameController.clear();
-    _specialtyController.clear();
-    _phoneController.clear();
-    _feeController.clear();
-    _scheduleController.clear();
-    _experienceController.clear();
-    setState(() {});
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final repo = context.read<DoctorRepository>();
+      final fee = double.tryParse(_feeController.text);
+      if (fee == null || fee < 0) {
+        throw const ValidationException('Konsultasiya haqqı düzgün deyil');
+      }
+
+      await repo.save(Doctor.create(
+        fullName: _nameController.text,
+        specialty: _specialtyController.text,
+        phone: _phoneController.text,
+        consultationFee: fee,
+        schedule: _scheduleController.text,
+        experience: _experienceController.text,
+      ));
+
+      _nameController.clear();
+      _specialtyController.clear();
+      _phoneController.clear();
+      _feeController.clear();
+      _scheduleController.clear();
+      _experienceController.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Həkim uğurla əlavə edildi')),
+        );
+      }
+    } on ValidationException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } on Exception catch (e) {
+      setState(() => _errorMessage = 'Xəta: $e');
+    } finally {
+      setState(() => _isSaving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final repo = context.read<DoctorRepository>();
+    final theme = Theme.of(context);
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Ad Soyad'),
-                ),
+          padding: const EdgeInsets.all(AppTheme.spacing4),
+          child: Text(
+            'Həkimlər',
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppTheme.spacing3),
+              decoration: BoxDecoration(
+                color: AppTheme.errorContainer,
+                borderRadius: AppTheme.borderRadiusMedium,
               ),
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _specialtyController,
-                  decoration: const InputDecoration(labelText: 'İxtisas'),
-                ),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(color: AppTheme.error),
               ),
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(labelText: 'Telefon'),
-                ),
-              ),
-              SizedBox(
-                width: 120,
-                child: TextField(
-                  controller: _feeController,
-                  decoration: const InputDecoration(labelText: 'Haqq'),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _experienceController,
-                  decoration: const InputDecoration(labelText: 'Təcrübə'),
-                ),
-              ),
-              ElevatedButton(onPressed: _addDoctor, child: const Text('Əlavə et')),
-            ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(AppTheme.spacing4),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 800;
+              if (isWide) {
+                return Row(
+                  children: [
+                    Expanded(child: _buildTextField(_nameController, 'Ad Soyad', Icons.person)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(child: _buildTextField(_specialtyController, 'İxtisas', Icons.medical_services)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(child: _buildTextField(_phoneController, 'Telefon', Icons.phone)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(child: _buildTextField(_feeController, 'Haqq (AZN)', Icons.attach_money, TextInputType.number)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(child: _buildTextField(_experienceController, 'Təcrübə', Icons.work)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    FilledButton.icon(
+                      onPressed: _isSaving ? null : _addDoctor,
+                      icon: _isSaving
+                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.add_rounded),
+                      label: const Text('Əlavə et'),
+                    ),
+                  ],
+                );
+              }
+              return Wrap(
+                spacing: AppTheme.spacing2,
+                runSpacing: AppTheme.spacing2,
+                children: [
+                  SizedBox(width: 160, child: _buildTextField(_nameController, 'Ad Soyad', Icons.person)),
+                  SizedBox(width: 160, child: _buildTextField(_specialtyController, 'İxtisas', Icons.medical_services)),
+                  SizedBox(width: 140, child: _buildTextField(_phoneController, 'Telefon', Icons.phone)),
+                  SizedBox(width: 120, child: _buildTextField(_feeController, 'Haqq (AZN)', Icons.attach_money, TextInputType.number)),
+                  SizedBox(width: 140, child: _buildTextField(_experienceController, 'Təcrübə', Icons.work)),
+                  FilledButton.icon(
+                    onPressed: _isSaving ? null : _addDoctor,
+                    icon: _isSaving
+                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.add_rounded),
+                    label: const Text('Əlavə et'),
+                  ),
+                ],
+              );
+            },
           ),
         ),
         Expanded(
           child: FutureBuilder(
             future: repo.all(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final doctors = snapshot.data as List<Doctor>;
-              if (doctors.isEmpty) {
-                return const Center(child: Text('Həkimlər yoxdur'));
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline_rounded, size: 48, color: theme.colorScheme.error),
+                      const SizedBox(height: AppTheme.spacing3),
+                      Text('Xəta baş verdi', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                );
               }
+
+              final doctors = snapshot.data as List<Doctor>? ?? [];
+
+              if (doctors.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.medical_services_outlined, size: 48, color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(height: AppTheme.spacing3),
+                      Text('Həkimlər yoxdur', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: AppTheme.spacing2),
+                      Text('Yuxarıdakı formadan həkim əlavə edin', style: theme.textTheme.bodyMedium),
+                    ],
+                  ),
+                );
+              }
+
               return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
                 itemCount: doctors.length,
                 itemBuilder: (context, index) {
                   final doctor = doctors[index];
-                  return ListTile(
-                    leading: const Icon(Icons.medical_services),
-                    title: Text(doctor.fullName),
-                    subtitle: Text(
-                      '${doctor.specialty} • ${doctor.phone}\n'
-                      'Haqq: ${doctor.consultationFee.toStringAsFixed(2)} AZN\n'
-                      'Təcrübə: ${doctor.experience ?? "Göstərilməyib"}',
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(AppTheme.spacing3),
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: Icon(Icons.person_rounded, color: theme.colorScheme.primary),
+                      ),
+                      title: Text(
+                        doctor.fullName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${doctor.specialty} • ${doctor.phone}'),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.successContainer,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${doctor.consultationFee.toStringAsFixed(2)} AZN',
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.success),
+                                ),
+                              ),
+                              if (doctor.experience != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.warningContainer,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    doctor.experience!,
+                                    style: const TextStyle(fontSize: 12, color: AppTheme.warning),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                      isThreeLine: true,
                     ),
-                    isThreeLine: true,
                   );
                 },
               );
@@ -121,6 +248,23 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, [
+    TextInputType? keyboardType,
+  ]) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        isDense: true,
+      ),
     );
   }
 }
