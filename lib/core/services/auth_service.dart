@@ -13,9 +13,11 @@ class AuthService extends ChangeNotifier {
   static const int _maxLoginAttempts = 5;
   static const Duration _lockoutDuration = Duration(minutes: 5);
 
-  AuthService(this._users);
+  AuthService(this._users, {AuditLogRepository? auditLogs})
+      : _auditLogs = auditLogs;
 
   final UserRepository _users;
+  final AuditLogRepository? _auditLogs;
   AppUser? _currentUser;
   int _failedAttempts = 0;
   DateTime? _lockedUntil;
@@ -100,6 +102,15 @@ class AuthService extends ChangeNotifier {
 
     try {
       await _users.save(user);
+      await _logAudit(
+        userId: user.id,
+        userName: user.fullName,
+        userRole: user.role,
+        action: AuditAction.create,
+        entityType: 'User',
+        entityId: user.id,
+        entityName: user.username,
+      );
       return user;
     } on Exception catch (e) {
       throw StorageException('İstifadəçi qeydiyyatı uğursuz oldu', e);
@@ -135,6 +146,16 @@ class AuthService extends ChangeNotifier {
       _resetFailedAttempts();
       _currentUser = user;
       notifyListeners();
+
+      await _logAudit(
+        userId: user.id,
+        userName: user.fullName,
+        userRole: user.role,
+        action: AuditAction.login,
+        entityType: 'Auth',
+        entityName: 'Login',
+      );
+
       return true;
     } on Exception catch (e) {
       debugPrint('Login error: $e');
@@ -142,23 +163,22 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  void _handleFailedAttempt() {
-    _failedAttempts++;
-    if (_failedAttempts >= _maxLoginAttempts) {
-      _lockedUntil = DateTime.now().add(_lockoutDuration);
-      _failedAttempts = 0;
-    }
-  }
-
-  void _resetFailedAttempts() {
-    _failedAttempts = 0;
-    _lockedUntil = null;
-  }
-
   void logout() {
+    final user = _currentUser;
     _currentUser = null;
     _resetFailedAttempts();
     notifyListeners();
+
+    if (user != null) {
+      _logAudit(
+        userId: user.id,
+        userName: user.fullName,
+        userRole: user.role,
+        action: AuditAction.logout,
+        entityType: 'Auth',
+        entityName: 'Logout',
+      );
+    }
   }
 
   bool hasRole(UserRole role) {
@@ -168,5 +188,33 @@ class AuthService extends ChangeNotifier {
   bool hasAnyRole(List<UserRole> roles) {
     if (_currentUser == null) return false;
     return roles.contains(_currentUser!.role);
+  }
+
+  Future<void> _logAudit({
+    required String userId,
+    required String userName,
+    required UserRole userRole,
+    required AuditAction action,
+    required String entityType,
+    String? entityId,
+    String? entityName,
+    Map<String, Object?>? changes,
+  }) async {
+    if (_auditLogs == null) return;
+    try {
+      final log = AuditLog.create(
+        userId: userId,
+        userName: userName,
+        userRole: userRole,
+        action: action,
+        entityType: entityType,
+        entityId: entityId,
+        entityName: entityName,
+        changes: changes,
+      );
+      await _auditLogs.save(log);
+    } on Exception catch (e) {
+      debugPrint('Audit log failed: $e');
+    }
   }
 }

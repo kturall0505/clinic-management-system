@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'core/app_config.dart';
 import 'core/db/app_database.dart';
@@ -10,6 +12,9 @@ import 'core/services/sync_service.dart';
 import 'core/services/payment_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/ai_service.dart';
+import 'core/services/backup_service.dart';
+import 'core/services/report_service.dart';
+import 'core/services/queue_service.dart';
 import 'core/theme/app_theme.dart';
 import 'ui/home_shell.dart';
 
@@ -23,8 +28,19 @@ void main() async {
   final appointments = AppointmentRepository(db);
   final prescriptions = PrescriptionRepository(db);
   final payments = PaymentRepository(db);
+  final patientMedicalInfo = PatientMedicalInfoRepository(db);
+  final medicalVisits = MedicalVisitRepository(db);
+  final medications = MedicationRepository(db);
+  final prescriptionItems = PrescriptionItemRepository(db);
+  final invoices = InvoiceRepository(db);
+  final invoiceItems = InvoiceItemRepository(db);
+  final auditLogs = AuditLogRepository(db);
+  final queueEntries = QueueEntryRepository(db);
+  final notificationsRepo = AppNotificationRepository(db);
+  final reportsRepo = ReportRepository(db);
+  final backupRecords = BackupRecordRepository(db);
 
-  final auth = AuthService(users);
+  final auth = AuthService(users, auditLogs: auditLogs);
   await auth.ensureSeedAdmin();
 
   final license = LicenseService(
@@ -38,13 +54,34 @@ void main() async {
     supabaseAnonKey: AppConfig.supabaseAnonKey,
   );
 
-  final notifications = NotificationService();
-  unawaited(notifications.initialize());
+  final notificationService = NotificationService(
+    supabaseUrl: AppConfig.supabaseUrl,
+    supabaseAnonKey: AppConfig.supabaseAnonKey,
+  );
+  unawaited(notificationService.initialize());
 
   final paymentService = PaymentService(
     supabaseUrl: AppConfig.supabaseUrl,
     supabaseAnonKey: AppConfig.supabaseAnonKey,
   );
+
+  final backupService = BackupService(
+    tenantId: AppConfig.defaultTenantId,
+    supabaseUrl: AppConfig.supabaseUrl,
+    supabaseAnonKey: AppConfig.supabaseAnonKey,
+  );
+
+  final reportService = ReportService(
+    tenantId: AppConfig.defaultTenantId,
+    patientsRepo: patients,
+    doctorsRepo: doctors,
+    appointmentsRepo: appointments,
+    paymentsRepo: payments,
+    invoicesRepo: invoices,
+    visitsRepo: medicalVisits,
+  );
+
+  final queueService = QueueService(tenantId: AppConfig.defaultTenantId);
 
   runApp(
     MultiProvider(
@@ -56,11 +93,25 @@ void main() async {
         Provider.value(value: appointments),
         Provider.value(value: prescriptions),
         Provider.value(value: payments),
+        Provider.value(value: patientMedicalInfo),
+        Provider.value(value: medicalVisits),
+        Provider.value(value: medications),
+        Provider.value(value: prescriptionItems),
+        Provider.value(value: invoices),
+        Provider.value(value: invoiceItems),
+        Provider.value(value: auditLogs),
+        Provider.value(value: queueEntries),
+        Provider.value(value: notificationsRepo),
+        Provider.value(value: reportsRepo),
+        Provider.value(value: backupRecords),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: license),
         Provider.value(value: sync),
-        Provider.value(value: notifications),
+        Provider.value(value: notificationService),
         Provider.value(value: paymentService),
+        Provider.value(value: backupService),
+        Provider.value(value: reportService),
+        Provider.value(value: queueService),
       ],
       child: const ClinicApp(),
     ),
@@ -79,7 +130,7 @@ class ClinicApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const DefaultTabController(
-          length: 5,
+          length: 9,
           child: HomeShell(),
         ),
       ),
