@@ -5,15 +5,14 @@ import '../../core/models/models.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/license_service.dart';
-import '../../core/services/sync_service.dart';
-import '../../core/services/payment_service.dart';
-import '../../core/services/notification_service.dart';
-import '../../core/services/ai_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/doctors_screen.dart';
 import 'screens/patients_screen.dart';
 import 'screens/appointments_screen.dart';
+import 'screens/prescriptions_screen.dart';
+import 'screens/invoices_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/assistant_screen.dart';
 import 'screens/license_lock_screen.dart';
 
@@ -60,6 +59,7 @@ class HomeShell extends StatelessWidget {
           ),
         ],
       ),
+      drawer: const _AppDrawer(),
       body: const _ShellBody(),
       bottomNavigationBar: const _BottomNav(),
     );
@@ -82,6 +82,12 @@ class _ShellBody extends StatelessWidget {
       case 3:
         return const AppointmentsScreen();
       case 4:
+        return const PrescriptionsScreen();
+      case 5:
+        return const InvoicesScreen();
+      case 6:
+        return const ReportsScreen();
+      case 7:
         return const AssistantScreen();
       default:
         return const DashboardScreen();
@@ -119,10 +125,129 @@ class _BottomNav extends StatelessWidget {
           label: 'Randevular',
         ),
         BottomNavigationBarItem(
+          icon: Icon(Icons.medication_rounded),
+          label: 'Resept',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.receipt_long_rounded),
+          label: 'Faktura',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.analytics_rounded),
+          label: 'Hesabat',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(Icons.smart_toy_rounded),
           label: 'Assistent',
         ),
       ],
+    );
+  }
+}
+
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final user = auth.currentUser;
+
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Icon(Icons.person, color: Theme.of(context).colorScheme.onPrimary),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  user?.fullName ?? 'İstifadəçi',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  user?.role.label ?? '',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard_rounded),
+            title: const Text('Panel'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(0);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.medical_services_rounded),
+            title: const Text('Həkimlər'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(1);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.people_rounded),
+            title: const Text('Pasientlər'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(2);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.event_rounded),
+            title: const Text('Randevular'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(3);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.medication_rounded),
+            title: const Text('Resept'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(4);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.receipt_long_rounded),
+            title: const Text('Faktura'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(5);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.analytics_rounded),
+            title: const Text('Hesabat'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(6);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.smart_toy_rounded),
+            title: const Text('Assistent'),
+            onTap: () {
+              DefaultTabController.of(context)?.animateTo(7);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
     );
   }
 }

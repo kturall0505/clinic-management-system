@@ -11,3 +11,6 @@ export 'services/sync_service.dart';
 export 'services/payment_service.dart';
 export 'services/storage_service.dart';
 export 'services/notification_service.dart';
+export 'services/backup_service.dart';
+export 'services/report_service.dart';
+export 'services/queue_service.dart';
