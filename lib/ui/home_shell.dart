@@ -6,6 +6,7 @@ import '../../core/repositories/repositories.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/license_service.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/doctors_screen.dart';
 import 'screens/patients_screen.dart';
@@ -15,6 +16,12 @@ import 'screens/invoices_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/assistant_screen.dart';
 import 'screens/license_lock_screen.dart';
+import 'screens/users_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/audit_log_screen.dart';
+import 'screens/queue_management_screen.dart';
+import 'screens/medical_history_screen.dart';
+import 'screens/file_upload_screen.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key});
@@ -29,7 +36,7 @@ class HomeShell extends StatelessWidget {
     }
 
     if (!auth.isLoggedIn) {
-      return const LoginScreen();
+      return const SplashScreen();
     }
 
     return Scaffold(
@@ -100,7 +107,6 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
       currentIndex: DefaultTabController.of(context)?.index ?? 0,
@@ -244,6 +250,47 @@ class _AppDrawer extends StatelessWidget {
             onTap: () {
               DefaultTabController.of(context)?.animateTo(7);
               Navigator.pop(context);
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.people_rounded),
+            title: const Text('İstifadəçilər'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.history_rounded),
+            title: const Text('Audit Jurnalı'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditLogScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.queue_rounded),
+            title: const Text('Növbə'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const QueueManagementScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_file_rounded),
+            title: const Text('Fayl Yükləmə'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const FileUploadScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_rounded),
+            title: const Text('Tənzimləmələr'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
           ),
         ],

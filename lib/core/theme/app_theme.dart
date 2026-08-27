@@ -1,5 +1,6 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class AppTheme {
   static const Color primary = Color(0xFF1976D2);
@@ -62,6 +63,70 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: borderRadiusMedium,
           borderSide: const BorderSide(color: primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: borderRadiusMedium,
+          borderSide: const BorderSide(color: error, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: spacing4, vertical: spacing3),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: spacing4, vertical: spacing3),
+          shape: RoundedRectangleBorder(borderRadius: borderRadiusMedium),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: spacing4, vertical: spacing3),
+          shape: RoundedRectangleBorder(borderRadius: borderRadiusMedium),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: spacing2, vertical: spacing2),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: borderRadiusMedium),
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: const ColorScheme(
+        brightness: Brightness.dark,
+        primary: primaryLight,
+        onPrimary: Colors.black,
+        secondary: secondary,
+        onSecondary: Colors.black,
+        error: error,
+        onError: Colors.white,
+        surface: Color(0xFF1E1E1E),
+        onSurface: Color(0xFFE0E0E0),
+        outline: Color(0xFF424242),
+      ),
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      cardTheme: CardTheme(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: borderRadiusMedium,
+          side: const BorderSide(color: Color(0xFF424242), width: 1),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: borderRadiusMedium,
+          borderSide: const BorderSide(color: Color(0xFF424242)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: borderRadiusMedium,
+          borderSide: const BorderSide(color: primaryLight, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: borderRadiusMedium,

@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'core/app_config.dart';
 import 'core/db/app_database.dart';
@@ -15,6 +13,7 @@ import 'core/services/ai_service.dart';
 import 'core/services/backup_service.dart';
 import 'core/services/report_service.dart';
 import 'core/services/queue_service.dart';
+import 'core/services/connectivity_service.dart';
 import 'core/theme/app_theme.dart';
 import 'ui/home_shell.dart';
 
@@ -83,6 +82,9 @@ void main() async {
 
   final queueService = QueueService(tenantId: AppConfig.defaultTenantId);
 
+  final connectivityService = ConnectivityService();
+  await connectivityService.initialize();
+
   runApp(
     MultiProvider(
       providers: [
@@ -112,6 +114,7 @@ void main() async {
         Provider.value(value: backupService),
         Provider.value(value: reportService),
         Provider.value(value: queueService),
+        ChangeNotifierProvider.value(value: connectivityService),
       ],
       child: const ClinicApp(),
     ),
@@ -129,8 +132,20 @@ class ClinicApp extends StatelessWidget {
         title: AppConfig.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+        localizationsDelegates: const [
+          AppLocalizationsDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('en'),
+          Locale('az'),
+        ],
         home: const DefaultTabController(
-          length: 9,
+          length: 8,
           child: HomeShell(),
         ),
       ),

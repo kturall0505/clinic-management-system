@@ -19,9 +19,11 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
   final _feeController = TextEditingController();
   final _scheduleController = TextEditingController();
   final _experienceController = TextEditingController();
+  final _searchController = TextEditingController();
 
   bool _isSaving = false;
   String? _errorMessage;
+  String _searchQuery = '';
 
   Future<void> _addDoctor() async {
     if (_nameController.text.isEmpty) return;
@@ -81,6 +83,26 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
           child: Text(
             'Həkimlər',
             style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Axtarış...',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+            ),
+            onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
           ),
         ),
         if (_errorMessage != null)
@@ -186,11 +208,32 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
                 );
               }
 
+              final filtered = _searchQuery.isEmpty
+                  ? doctors
+                  : doctors.where((d) =>
+                      d.fullName.toLowerCase().contains(_searchQuery) ||
+                      d.specialty.toLowerCase().contains(_searchQuery) ||
+                      d.phone.contains(_searchQuery)
+                    ).toList();
+
+              if (filtered.isEmpty && _searchQuery.isNotEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off_rounded, size: 48, color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(height: AppTheme.spacing3),
+                      Text('Nəticə tapılmadı', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                );
+              }
+
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
-                itemCount: doctors.length,
+                itemCount: filtered.length,
                 itemBuilder: (context, index) {
-                  final doctor = doctors[index];
+                  final doctor = filtered[index];
                   return Card(
                     margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
                     child: ListTile(

@@ -20,9 +20,11 @@ class _PatientsScreenState extends State<PatientsScreen> {
   final _allergiesController = TextEditingController();
   final _chronicController = TextEditingController();
   final _notesController = TextEditingController();
+  final _searchController = TextEditingController();
 
   bool _isSaving = false;
   String? _errorMessage;
+  String _searchQuery = '';
 
   Future<void> _addPatient() async {
     if (_nameController.text.isEmpty) return;
@@ -84,6 +86,26 @@ class _PatientsScreenState extends State<PatientsScreen> {
           child: Text(
             'Pasientlər',
             style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Axtarış...',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+            ),
+            onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
           ),
         ),
         if (_errorMessage != null)
@@ -195,11 +217,34 @@ class _PatientsScreenState extends State<PatientsScreen> {
                 );
               }
 
+              final filtered = _searchQuery.isEmpty
+                  ? patients
+                  : patients.where((p) =>
+                      p.fullName.toLowerCase().contains(_searchQuery) ||
+                      p.phone.contains(_searchQuery) ||
+                      (p.fin ?? '').toLowerCase().contains(_searchQuery) ||
+                      (p.allergies ?? '').toLowerCase().contains(_searchQuery) ||
+                      (p.chronicConditions ?? '').toLowerCase().contains(_searchQuery)
+                    ).toList();
+
+              if (filtered.isEmpty && _searchQuery.isNotEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off_rounded, size: 48, color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(height: AppTheme.spacing3),
+                      Text('Nəticə tapılmadı', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                );
+              }
+
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
-                itemCount: patients.length,
+                itemCount: filtered.length,
                 itemBuilder: (context, index) {
-                  final patient = patients[index];
+                  final patient = filtered[index];
                   return Card(
                     margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
                     child: ExpansionTile(
