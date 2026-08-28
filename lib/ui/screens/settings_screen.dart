@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/settings_provider.dart';
+import '../../core/services/integration_settings.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -61,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     final connectivity = context.watch<ConnectivityService>();
     final settings = context.watch<SettingsProvider>();
+    final integration = context.watch<IntegrationSettings>();
 
     return Scaffold(
       appBar: AppBar(
@@ -158,6 +160,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacing4),
+          _buildSectionTitle(theme, 'İnteqrasiyalar'),
+          const SizedBox(height: AppTheme.spacing3),
+          _buildIntegrationCard(theme, integration),
+          const SizedBox(height: AppTheme.spacing4),
           _buildSectionTitle(theme, 'Təhlükəsizlik'),
           const SizedBox(height: AppTheme.spacing3),
           Card(
@@ -210,6 +216,290 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildIntegrationCard(ThemeData theme, IntegrationSettings integration) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.integrations_rounded, color: theme.colorScheme.primary),
+                const SizedBox(width: AppTheme.spacing2),
+                Text('Xarici Servislər', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                const Spacer(),
+                _buildStatusBadge(integration.hasAnyIntegration ? 'Aktiv' : 'Deaktiv', 
+                  integration.hasAnyIntegration ? AppTheme.success : AppTheme.onSurfaceVariant),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spacing3),
+            _IntegrationTile(
+              title: 'Supabase',
+              subtitle: integration.isSupabaseConfigured ? 'Konfiqurasiya edilib' : 'Konfiqurasiya edilməyib',
+              icon: Icons.cloud_rounded,
+              isConfigured: integration.isSupabaseConfigured,
+              onTap: () => _showSupabaseDialog(integration),
+            ),
+            const Divider(height: 1),
+            _IntegrationTile(
+              title: 'AI Backend',
+              subtitle: integration.isAiConfigured ? integration.aiEndpoint : 'Konfiqurasiya edilməyib',
+              icon: Icons.smart_toy_rounded,
+              isConfigured: integration.isAiConfigured,
+              onTap: () => _showAiDialog(integration),
+            ),
+            const Divider(height: 1),
+            _IntegrationTile(
+              title: 'License Server',
+              subtitle: integration.isLicenseConfigured ? 'Konfiqurasiya edilib' : 'Konfiqurasiya edilməyib',
+              icon: Icons.verified_rounded,
+              isConfigured: integration.isLicenseConfigured,
+              onTap: () => _showLicenseDialog(integration),
+            ),
+            const Divider(height: 1),
+            _IntegrationTile(
+              title: 'Ödəniş Gateway',
+              subtitle: integration.paymentGateway == 'none' ? 'Konfiqurasiya edilməyib' : integration.paymentGateway,
+              icon: Icons.payment_rounded,
+              isConfigured: integration.isPaymentConfigured,
+              onTap: () => _showPaymentDialog(integration),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('Avtomatik Sinxronizasiya'),
+              subtitle: const Text('Bağlantı yeniləndikdə avtomatik sync'),
+              value: integration.autoSyncEnabled,
+              onChanged: (v) async {
+                await integration.setAutoSyncEnabled(v);
+                setState(() {});
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              title: const Text('Polling Interval'),
+              subtitle: Text('${integration.pollingInterval} saniyə'),
+              trailing: DropdownButton<int>(
+                value: integration.pollingInterval,
+                items: const [
+                  DropdownMenuItem(value: 15, child: Text('15 sn')),
+                  DropdownMenuItem(value: 30, child: Text('30 sn')),
+                  DropdownMenuItem(value: 60, child: Text('1 dəq')),
+                  DropdownMenuItem(value: 120, child: Text('2 dəq')),
+                ],
+                onChanged: (v) async {
+                  if (v != null) {
+                    await integration.setPollingInterval(v);
+                    setState(() {});
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(text, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+    );
+  }
+
+  Future<void> _showSupabaseDialog(IntegrationSettings integration) async {
+    final urlController = TextEditingController(text: integration.supabaseUrl);
+    final keyController = TextEditingController(text: integration.supabaseAnonKey);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supabase Konfiqurasiyası'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: urlController,
+                decoration: const InputDecoration(labelText: 'Supabase URL'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: keyController,
+                decoration: const InputDecoration(labelText: 'Anon Key'),
+                obscureText: true,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              await integration.setSupabaseUrl(urlController.text);
+              await integration.setSupabaseAnonKey(keyController.text);
+              AppConfig.updateFromIntegrationSettings(integration);
+              Navigator.pop(context);
+              setState(() {});
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Supabase konfiqurasiyası yeniləndi')),
+                );
+              }
+            },
+            child: const Text('Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAiDialog(IntegrationSettings integration) async {
+    final endpointController = TextEditingController(text: integration.aiEndpoint);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('AI Backend Konfiqurasiyası'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: endpointController,
+                decoration: const InputDecoration(labelText: 'AI Endpoint URL'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              await integration.setAiEndpoint(endpointController.text);
+              AppConfig.updateFromIntegrationSettings(integration);
+              Navigator.pop(context);
+              setState(() {});
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('AI konfiqurasiyası yeniləndi')),
+                );
+              }
+            },
+            child: const Text('Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showLicenseDialog(IntegrationSettings integration) async {
+    final serverController = TextEditingController(text: integration.licenseServerUrl);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('License Server Konfiqurasiyası'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: serverController,
+                decoration: const InputDecoration(labelText: 'License Server URL'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              await integration.setLicenseServerUrl(serverController.text);
+              AppConfig.updateFromIntegrationSettings(integration);
+              Navigator.pop(context);
+              setState(() {});
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('License server konfiqurasiyası yeniləndi')),
+                );
+              }
+            },
+            child: const Text('Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPaymentDialog(IntegrationSettings integration) async {
+    final gatewayController = TextEditingController(text: integration.paymentGateway);
+    final publicKeyController = TextEditingController(text: integration.paymentPublicKey);
+    final secretKeyController = TextEditingController(text: integration.paymentSecretKey);
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Ödəniş Gateway Konfiqurasiyası'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Gateway'),
+                  value: gatewayController.text,
+                  items: const [
+                    DropdownMenuItem(value: 'none', child: Text('Yox')),
+                    DropdownMenuItem(value: 'stripe', child: Text('Stripe')),
+                    DropdownMenuItem(value: 'paytr', child: Text('PayTR')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) gatewayController.text = v;
+                  },
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: publicKeyController,
+                  decoration: const InputDecoration(labelText: 'Public Key'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: secretKeyController,
+                  decoration: const InputDecoration(labelText: 'Secret Key'),
+                  obscureText: true,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+            FilledButton(
+              onPressed: () async {
+                await integration.setPaymentGateway(gatewayController.text);
+                await integration.setPaymentPublicKey(publicKeyController.text);
+                await integration.setPaymentSecretKey(secretKeyController.text);
+                Navigator.pop(context);
+                setState(() {});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Ödəniş konfiqurasiyası yeniləndi')),
+                  );
+                }
+              },
+              child: const Text('Yadda saxla'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(ThemeData theme, String title) {
     return Text(
       title,
@@ -217,6 +507,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: theme.colorScheme.primary,
         fontWeight: FontWeight.w600,
       ),
+    );
+  }
+}
+
+class _IntegrationTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isConfigured;
+  final VoidCallback onTap;
+
+  const _IntegrationTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isConfigured,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: Icon(icon, color: isConfigured ? AppTheme.success : theme.colorScheme.onSurfaceVariant),
+      title: Text(title),
+      subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
+      trailing: Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+      onTap: onTap,
     );
   }
 }

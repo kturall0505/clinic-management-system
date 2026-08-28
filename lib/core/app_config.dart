@@ -1,14 +1,21 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
-  static const String appName = 'Tibb Klinika';
-  static const String defaultTenantId = 'default-clinic';
-  static const String supabaseUrl = '';
-  static const String supabaseAnonKey = '';
-  static const String licenseServerUrl = '';
-  static const String aiEndpoint = '';
-  static const Duration licenseGracePeriod = Duration(hours: 24);
+  static String appName = 'Tibb Klinika';
+  static String defaultTenantId = 'default-clinic';
+  static String supabaseUrl = '';
+  static String supabaseAnonKey = '';
+  static String licenseServerUrl = '';
+  static String aiEndpoint = '';
+  static Duration licenseGracePeriod = const Duration(hours: 24);
 
   static bool get isDevelopment => kDebugMode;
   static bool get isProduction => kReleaseMode;
+
+  static void updateFromIntegrationSettings(IntegrationSettings settings) {
+    supabaseUrl = settings.supabaseUrl;
+    supabaseAnonKey = settings.supabaseAnonKey;
+    aiEndpoint = settings.aiEndpoint;
+    licenseServerUrl = settings.licenseServerUrl;
+  }
 }

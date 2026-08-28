@@ -16,12 +16,16 @@ import 'core/services/report_service.dart';
 import 'core/services/queue_service.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/settings_provider.dart';
+import 'core/services/integration_settings.dart';
 import 'core/theme/app_theme.dart';
 import 'ui/home_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+
+  final integrationSettings = IntegrationSettings(prefs: prefs);
+  AppConfig.updateFromIntegrationSettings(integrationSettings);
 
   final db = await AppDatabase.open(AppConfig.defaultTenantId);
   final users = UserRepository(db);
@@ -125,6 +129,7 @@ void main() async {
         Provider.value(value: reportsRepo),
         Provider.value(value: backupRecords),
         Provider.value(value: auditLogService),
+        Provider.value(value: integrationSettings),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: license),
         ChangeNotifierProvider.value(value: settingsProvider),
