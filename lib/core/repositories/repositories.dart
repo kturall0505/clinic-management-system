@@ -21,6 +21,11 @@ class _Store<T> {
     final records = await store.find(db.db);
     return records.map((r) => fromMap(r.value)).toList();
   }
+
+  Future<List<T>> find(Finder finder) async {
+    final records = await store.find(db.db, finder: finder);
+    return records.map((r) => fromMap(r.value)).toList();
+  }
 }
 
 class PatientRepository {
@@ -33,11 +38,12 @@ class PatientRepository {
   Future<void> delete(String id) => _store.delete(id);
 
   Future<List<Patient>> all({String? clinicId, int? userLevel}) async {
-    final items = await _store.all();
     if (userLevel != null && userLevel < 100 && clinicId != null) {
-      return items.where((p) => p.id.startsWith(clinicId)).toList();
+      return _store.find(Finder(
+        filter: Filter.startsWith('id', clinicId),
+      ));
     }
-    return items;
+    return _store.all();
   }
 }
 
@@ -80,21 +86,23 @@ class UserRepository {
   Future<List<AppUser>> all() => _store.all();
 
   Future<AppUser?> findByUsername(String username) async {
-    final users = await _store.all();
-    for (final user in users) {
-      if (user.username == username) return user;
-    }
-    return null;
+    final results = await _store.find(Finder(
+      filter: Filter.equals('username', username),
+      limit: 1,
+    ));
+    return results.isEmpty ? null : results.first;
   }
 
   Future<List<AppUser>> findByClinicId(String clinicId) async {
-    final users = await _store.all();
-    return users.where((u) => u.clinicId == clinicId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('clinicId', clinicId),
+    ));
   }
 
   Future<List<AppUser>> findSuperAdmins() async {
-    final users = await _store.all();
-    return users.where((u) => u.role.level >= 100).toList();
+    return _store.find(Finder(
+      filter: Filter.greaterThanOrEquals('role_level', 100),
+    ));
   }
 }
 
@@ -133,11 +141,11 @@ class PatientMedicalInfoRepository {
   Future<List<PatientMedicalInfo>> all() => _store.all();
 
   Future<PatientMedicalInfo?> findByPatientId(String patientId) async {
-    final items = await _store.all();
-    for (final item in items) {
-      if (item.patientId == patientId) return item;
-    }
-    return null;
+    final results = await _store.find(Finder(
+      filter: Filter.equals('patientId', patientId),
+      limit: 1,
+    ));
+    return results.isEmpty ? null : results.first;
   }
 }
 
@@ -151,14 +159,17 @@ class MedicalVisitRepository {
   Future<void> delete(String id) => _store.delete(id);
 
   Future<List<MedicalVisit>> all() async {
-    final items = await _store.all();
-    items.sort((a, b) => b.visitDate.compareTo(a.visitDate));
+    final items = await _store.find(Finder(
+      sortOrders: [SortOrder('visitDate', false)],
+    ));
     return items;
   }
 
   Future<List<MedicalVisit>> findByPatientId(String patientId) async {
-    final items = await _store.all();
-    return items.where((v) => v.patientId == patientId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('patientId', patientId),
+      sortOrders: [SortOrder('visitDate', false)],
+    ));
   }
 }
 
@@ -173,11 +184,11 @@ class MedicationRepository {
   Future<List<Medication>> all() => _store.all();
 
   Future<Medication?> findByName(String name) async {
-    final items = await _store.all();
-    for (final item in items) {
-      if (item.name.toLowerCase() == name.toLowerCase()) return item;
-    }
-    return null;
+    final results = await _store.find(Finder(
+      filter: Filter.equals('name', name),
+      limit: 1,
+    ));
+    return results.isEmpty ? null : results.first;
   }
 }
 
@@ -192,8 +203,9 @@ class PrescriptionItemRepository {
   Future<List<PrescriptionItem>> all() => _store.all();
 
   Future<List<PrescriptionItem>> findByPrescriptionId(String prescriptionId) async {
-    final items = await _store.all();
-    return items.where((i) => i.prescriptionId == prescriptionId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('prescriptionId', prescriptionId),
+    ));
   }
 }
 
@@ -219,8 +231,9 @@ class InvoiceItemRepository {
   Future<List<InvoiceItem>> all() => _store.all();
 
   Future<List<InvoiceItem>> findByInvoiceId(String invoiceId) async {
-    final items = await _store.all();
-    return items.where((i) => i.invoiceId == invoiceId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('invoiceId', invoiceId),
+    ));
   }
 }
 
@@ -234,19 +247,26 @@ class AuditLogRepository {
   Future<void> delete(String id) => _store.delete(id);
 
   Future<List<AuditLog>> all() async {
-    final items = await _store.all();
-    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return items;
+    return _store.find(Finder(
+      sortOrders: [SortOrder('createdAt', false)],
+    ));
   }
 
   Future<List<AuditLog>> findByUserId(String userId) async {
-    final items = await _store.all();
-    return items.where((l) => l.userId == userId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('userId', userId),
+      sortOrders: [SortOrder('createdAt', false)],
+    ));
   }
 
   Future<List<AuditLog>> findByEntity(String entityType, String entityId) async {
-    final items = await _store.all();
-    return items.where((l) => l.entityType == entityType && l.entityId == entityId).toList();
+    return _store.find(Finder(
+      filter: Filter.and([
+        Filter.equals('entityType', entityType),
+        Filter.equals('entityId', entityId),
+      ]),
+      sortOrders: [SortOrder('createdAt', false)],
+    ));
   }
 }
 
@@ -260,35 +280,35 @@ class QueueEntryRepository {
   Future<void> delete(String id) => _store.delete(id);
 
   Future<List<QueueEntry>> all() async {
-    final items = await _store.all();
-    items.sort((a, b) => a.queueNumber.compareTo(b.queueNumber));
-    return items;
+    return _store.find(Finder(
+      sortOrders: [SortOrder('queueNumber', true)],
+    ));
   }
 
   Future<List<QueueEntry>> findByDoctorId(String doctorId) async {
-    final items = await _store.all();
-    return items.where((q) => q.doctorId == doctorId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('doctorId', doctorId),
+      sortOrders: [SortOrder('queueNumber', true)],
+    ));
   }
 
   Future<QueueEntry?> findById(String id) async {
-    final items = await _store.all();
-    for (final item in items) {
-      if (item.id == id) return item;
-    }
-    return null;
+    final results = await _store.find(Finder(
+      filter: Filter.equals('id', id),
+      limit: 1,
+    ));
+    return results.isEmpty ? null : results.first;
   }
 
   Future<QueueEntry?> findActiveByPatientId(String patientId) async {
-    final items = await _store.all();
-    for (final item in items) {
-      if (item.patientId == patientId &&
-          (item.status == QueueStatus.waiting ||
-              item.status == QueueStatus.called ||
-              item.status == QueueStatus.inProgress)) {
-        return item;
-      }
-    }
-    return null;
+    final results = await _store.find(Finder(
+      filter: Filter.and([
+        Filter.equals('patientId', patientId),
+        Filter.inList('status', ['waiting', 'called', 'inProgress']),
+      ]),
+      limit: 1,
+    ));
+    return results.isEmpty ? null : results.first;
   }
 }
 
@@ -303,14 +323,20 @@ class AppNotificationRepository {
   Future<List<AppNotification>> all() => _store.all();
 
   Future<List<AppNotification>> findByRecipientId(String recipientId) async {
-    final items = await _store.all();
-    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return items.where((n) => n.recipientId == recipientId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('recipientId', recipientId),
+      sortOrders: [SortOrder('createdAt', false)],
+    ));
   }
 
   Future<List<AppNotification>> findUnreadByRecipientId(String recipientId) async {
-    final items = await _store.all();
-    return items.where((n) => n.recipientId == recipientId && !n.isRead).toList();
+    return _store.find(Finder(
+      filter: Filter.and([
+        Filter.equals('recipientId', recipientId),
+        Filter.equals('isRead', false),
+      ]),
+      sortOrders: [SortOrder('createdAt', false)],
+    ));
   }
 }
 
@@ -347,18 +373,23 @@ class ClinicRepository {
   Future<List<Clinic>> all() => _store.all();
 
   Future<Clinic?> findById(String id) async {
-    final items = await _store.all();
-    return items.where((c) => c.id == id).firstOrNull;
+    final results = await _store.find(Finder(
+      filter: Filter.equals('id', id),
+      limit: 1,
+    ));
+    return results.isEmpty ? null : results.first;
   }
 
   Future<List<Clinic>> findPending() async {
-    final items = await _store.all();
-    return items.where((c) => c.status == SubscriptionStatus.pending).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('status', 'pending'),
+    ));
   }
 
   Future<List<Clinic>> findActive() async {
-    final items = await _store.all();
-    return items.where((c) => c.status == SubscriptionStatus.active).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('status', 'active'),
+    ));
   }
 }
 
@@ -373,13 +404,17 @@ class ApprovalRepository {
   Future<List<ApprovalRequest>> all() => _store.all();
 
   Future<List<ApprovalRequest>> findPending() async {
-    final items = await _store.all();
-    return items.where((a) => a.status == ApprovalStatus.pending).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('status', 'pending'),
+      sortOrders: [SortOrder('createdAt', true)],
+    ));
   }
 
   Future<List<ApprovalRequest>> findByClinicId(String clinicId) async {
-    final items = await _store.all();
-    return items.where((a) => a.clinicId == clinicId).toList();
+    return _store.find(Finder(
+      filter: Filter.equals('clinicId', clinicId),
+      sortOrders: [SortOrder('createdAt', false)],
+    ));
   }
 }
 
