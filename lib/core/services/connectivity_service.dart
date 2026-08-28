@@ -12,10 +12,13 @@ class ConnectivityService {
   ConnectionStatus _currentStatus = ConnectionStatus.unknown;
 
   ConnectionStatus get currentStatus => _currentStatus;
+  VoidCallback? onConnectionRestored;
 
   Future<void> initialize() async {
     await checkConnection();
     _subscription = _connectivity.onConnectivityChanged.listen((result) {
+      final wasOffline = _currentStatus == ConnectionStatus.offline;
+      
       if (result.contains(ConnectivityResult.mobile) || result.contains(ConnectivityResult.wifi) || result.contains(ConnectivityResult.ethernet)) {
         _currentStatus = ConnectionStatus.online;
       } else if (result.contains(ConnectivityResult.none)) {
@@ -24,6 +27,10 @@ class ConnectivityService {
         _currentStatus = ConnectionStatus.unknown;
       }
       _controller.add(_currentStatus);
+
+      if (wasOffline && _currentStatus == ConnectionStatus.online && onConnectionRestored != null) {
+        onConnectionRestored!();
+      }
     });
   }
 

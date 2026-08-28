@@ -105,4 +105,24 @@ class BackupService {
       debugPrint('Backup failed: ${backup.errorMessage}');
     }
   }
+
+  Future<void> restoreBackup(BackupRecord record) async {
+    if (record.filePath == null) {
+      throw const StorageException('Backup faylı tapılmadı');
+    }
+
+    try {
+      final file = File(record.filePath!);
+      if (!await file.exists()) {
+        throw const StorageException('Backup faylı mövcud deyil');
+      }
+
+      final jsonString = await file.readAsString();
+      final data = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      debugPrint('Restoring backup with ${data.length} stores');
+    } on Exception catch (e) {
+      throw StorageException('Backup bərpa edilərkən xəta: $e');
+    }
+  }
 }

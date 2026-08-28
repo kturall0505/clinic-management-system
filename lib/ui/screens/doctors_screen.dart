@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 
 class DoctorsScreen extends StatefulWidget {
   const DoctorsScreen({super.key});
@@ -47,6 +49,28 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
         schedule: _scheduleController.text,
         experience: _experienceController.text,
       ));
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      final savedDoctor = Doctor.create(
+        id: doctor?.id,
+        fullName: _nameController.text,
+        specialty: _specialtyController.text,
+        phone: _phoneController.text,
+        consultationFee: fee,
+        schedule: _scheduleController.text,
+        experience: _experienceController.text,
+      );
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: isEditing ? AuditAction.update : AuditAction.create,
+        entityType: 'Doctor',
+        entityId: savedDoctor.id,
+        entityName: savedDoctor.fullName,
+        changes: isEditing ? {'fullName': savedDoctor.fullName, 'specialty': savedDoctor.specialty} : null,
+      );
 
       _nameController.clear();
       _specialtyController.clear();
@@ -129,6 +153,17 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
 
     try {
       await context.read<DoctorRepository>().delete(doctor.id);
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.delete,
+        entityType: 'Doctor',
+        entityId: doctor.id,
+        entityName: doctor.fullName,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Həkim silindi')),

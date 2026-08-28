@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
@@ -59,6 +61,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       );
 
       await invoiceRepo.save(invoice);
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.create,
+        entityType: 'Invoice',
+        entityId: invoice.id,
+        entityName: invoice.patientId,
+        changes: {'totalAmount': invoice.totalAmount, 'status': invoice.status},
+      );
 
       for (final item in _invoiceItems) {
         final invoiceItem = InvoiceItem.create(
@@ -427,6 +442,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                   );
                                   if (confirm == true) {
                                     await invoiceRepo.delete(inv.id);
+                                    final auth = context.read<AuthService>();
+                                    final audit = context.read<AuditLogService>();
+                                    await audit.log(
+                                      userId: auth.currentUser?.id ?? '',
+                                      userName: auth.currentUser?.fullName ?? 'System',
+                                      userRole: auth.currentUser?.role ?? UserRole.admin,
+                                      action: AuditAction.delete,
+                                      entityType: 'Invoice',
+                                      entityId: inv.id,
+                                      entityName: inv.patientId,
+                                    );
                                     if (mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Faktura silindi')));
                                       setState(() {});

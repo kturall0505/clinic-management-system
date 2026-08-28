@@ -32,6 +32,17 @@ class HomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final license = context.watch<LicenseService>();
     final auth = context.watch<AuthService>();
+    final connectivity = context.watch<ConnectivityService>();
+
+    connectivity.onConnectionRestored = () async {
+      final sync = context.read<SyncService>();
+      final success = await sync.syncIncremental();
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bağlantı yeniləndi, sinxronizasiya tamamlandı')),
+        );
+      }
+    };
 
     if (license.isExpired) {
       return const LicenseLockScreen();

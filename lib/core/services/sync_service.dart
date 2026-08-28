@@ -60,7 +60,43 @@ class SyncService {
     }
   }
 
-  Future<void> _syncWithBackend(String table) async {
+  Future<bool> syncIncremental() async {
+    if (supabaseUrl.isEmpty || tenantId == null) {
+      return false;
+    }
+
+    final lastSync = _lastSyncTime;
+    if (lastSync == null) {
+      return syncAll();
+    }
+
+    _lastStatus = SyncStatus.syncing;
+    _lastError = null;
+
+    try {
+      await _syncWithBackend('patients', since: lastSync.toIso8601String());
+      await _syncWithBackend('appointments', since: lastSync.toIso8601String());
+      await _syncWithBackend('prescriptions', since: lastSync.toIso8601String());
+      await _syncWithBackend('payments', since: lastSync.toIso8601String());
+
+      _lastSyncTime = DateTime.now();
+      _lastStatus = SyncStatus.success;
+      debugPrint('Incremental sync completed at $_lastSyncTime');
+      return true;
+    } on Exception catch (e) {
+      _lastStatus = SyncStatus.failed;
+      _lastError = 'İnkremental sinxronizasiya xətası: $e';
+      debugPrint('Incremental sync failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> _syncWithBackend(String table, {String? since}) async {
+    final body = {'tenant_id': tenantId};
+    if (since != null) {
+      body['since'] = since;
+    }
+
     final uri = Uri.parse('$supabaseUrl/rest/v1/rpc/sync_$table');
     final response = await _client
         .post(
@@ -71,7 +107,7 @@ class SyncService {
             'Authorization': 'Bearer $supabaseAnonKey',
             'Prefer': 'return=minimal',
           },
-          body: jsonEncode({'tenant_id': tenantId}),
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 30));
 

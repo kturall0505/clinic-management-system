@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 import 'appointment_detail_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
@@ -61,6 +63,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         reason: _reasonController.text,
         status: appointment?.status ?? AppointmentStatus.scheduled,
       ));
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: isEditing ? AuditAction.update : AuditAction.create,
+        entityType: 'Appointment',
+        entityId: appointment?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        entityName: '$_selectedPatientId - $_selectedDoctorId',
+        changes: isEditing ? {'status': dateTime.toIso8601String()} : null,
+      );
 
       _reasonController.clear();
       _selectedPatientId = null;
@@ -244,6 +259,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
     try {
       await context.read<AppointmentRepository>().delete(appt.id);
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.delete,
+        entityType: 'Appointment',
+        entityId: appt.id,
+        entityName: '${appt.patientId} - ${appt.doctorId}',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Randevu silindi')),

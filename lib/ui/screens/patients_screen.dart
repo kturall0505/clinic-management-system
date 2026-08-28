@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 import 'patient_detail_screen.dart';
 
 class PatientsScreen extends StatefulWidget {
@@ -52,6 +54,19 @@ class _PatientsScreenState extends State<PatientsScreen> {
       );
 
       await repo.save(newPatient);
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: isEditing ? AuditAction.update : AuditAction.create,
+        entityType: 'Patient',
+        entityId: newPatient.id,
+        entityName: newPatient.fullName,
+        changes: isEditing ? {'fullName': newPatient.fullName, 'phone': newPatient.phone} : null,
+      );
 
       _nameController.clear();
       _birthDateController.clear();
@@ -138,6 +153,17 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
     try {
       await context.read<PatientRepository>().delete(patient.id);
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.delete,
+        entityType: 'Patient',
+        entityId: patient.id,
+        entityName: patient.fullName,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pasient silindi')),

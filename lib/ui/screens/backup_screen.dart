@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/backup_service.dart';
 import '../../core/repositories/repositories.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
@@ -34,6 +36,20 @@ class _BackupScreenState extends State<BackupScreen> {
       final service = context.read<BackupService>();
       final record = await service.createBackup();
       await context.read<BackupRecordRepository>().save(record);
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.create,
+        entityType: 'Backup',
+        entityId: record.id,
+        entityName: 'Backup ${record.recordsCount} records',
+        changes: {'recordsCount': record.recordsCount, 'sizeBytes': record.sizeBytes},
+      );
+
       await _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -69,6 +85,20 @@ class _BackupScreenState extends State<BackupScreen> {
     try {
       final service = context.read<BackupService>();
       await service.restoreBackup(record);
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.update,
+        entityType: 'Backup',
+        entityId: record.id,
+        entityName: 'Restore',
+        changes: {'recordsCount': record.recordsCount},
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Backupdan bərpa edildi')),

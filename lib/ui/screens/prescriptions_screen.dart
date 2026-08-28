@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 
 class PrescriptionsScreen extends StatefulWidget {
   const PrescriptionsScreen({super.key});
@@ -60,6 +62,19 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         notes: _notesController.text,
       );
       await prescriptionRepo.save(newPrescription);
+
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: isEditing ? AuditAction.update : AuditAction.create,
+        entityType: 'Prescription',
+        entityId: newPrescription.id,
+        entityName: newPrescription.patientId,
+        changes: isEditing ? {'diagnosis': newPrescription.diagnosis} : null,
+      );
 
       if (!isEditing) {
         for (final med in _medications) {
@@ -182,6 +197,17 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
 
     try {
       await context.read<PrescriptionRepository>().delete(prescription.id);
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.delete,
+        entityType: 'Prescription',
+        entityId: prescription.id,
+        entityName: prescription.patientId,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Resept silindi')),

@@ -42,6 +42,12 @@ void main() async {
   final reportsRepo = ReportRepository(db);
   final backupRecords = BackupRecordRepository(db);
 
+  final auditLogService = AuditLogService(
+    supabaseUrl: AppConfig.supabaseUrl,
+    supabaseAnonKey: AppConfig.supabaseAnonKey,
+    auditLogs: auditLogs,
+  );
+
   final auth = AuthService(users, auditLogs: auditLogs);
   await auth.ensureSeedAdmin();
 
@@ -118,6 +124,7 @@ void main() async {
         Provider.value(value: notificationsRepo),
         Provider.value(value: reportsRepo),
         Provider.value(value: backupRecords),
+        Provider.value(value: auditLogService),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: license),
         ChangeNotifierProvider.value(value: settingsProvider),

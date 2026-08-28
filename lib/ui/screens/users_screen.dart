@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/audit_log_service.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -50,6 +51,17 @@ class _UsersScreenState extends State<UsersScreen> {
         fullName: _fullNameController.text,
       );
 
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.admin,
+        action: AuditAction.create,
+        entityType: 'User',
+        entityName: _usernameController.text,
+        changes: {'role': _selectedRole.name, 'fullName': _fullNameController.text},
+      );
+
       _usernameController.clear();
       _fullNameController.clear();
       _passwordController.clear();
@@ -89,15 +101,16 @@ class _UsersScreenState extends State<UsersScreen> {
       final repo = context.read<UserRepository>();
       await repo.delete(user.id);
 
-      await context.read<AuditLogRepository>().save(AuditLog.create(
-            userId: context.read<AuthService>().currentUser?.id ?? '',
-            userName: context.read<AuthService>().currentUser?.fullName ?? 'Unknown',
-            userRole: context.read<AuthService>().currentUser?.role ?? UserRole.admin,
-            action: AuditAction.delete,
-            entityType: 'User',
-            entityId: user.id,
-            entityName: user.username,
-          ));
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: context.read<AuthService>().currentUser?.id ?? '',
+        userName: context.read<AuthService>().currentUser?.fullName ?? 'Unknown',
+        userRole: context.read<AuthService>().currentUser?.role ?? UserRole.admin,
+        action: AuditAction.delete,
+        entityType: 'User',
+        entityId: user.id,
+        entityName: user.username,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
