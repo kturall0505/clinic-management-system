@@ -6,6 +6,7 @@ import '../../core/services/connectivity_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/settings_provider.dart';
 import '../../core/services/integration_settings.dart';
+import '../../core/models/models.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -63,6 +64,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final connectivity = context.watch<ConnectivityService>();
     final settings = context.watch<SettingsProvider>();
     final integration = context.watch<IntegrationSettings>();
+    final auth = context.watch<AuthService>();
+    final role = auth.currentUser?.role;
+
+    final canManageIntegrations = role == UserRole.admin;
+    final canChangePassword = auth.hasAnyRole([UserRole.admin, UserRole.doctor, UserRole.receptionist, UserRole.patient]);
 
     return Scaffold(
       appBar: AppBar(
@@ -160,26 +166,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacing4),
-          _buildSectionTitle(theme, 'İnteqrasiyalar'),
-          const SizedBox(height: AppTheme.spacing3),
-          _buildIntegrationCard(theme, integration),
-          const SizedBox(height: AppTheme.spacing4),
-          _buildSectionTitle(theme, 'Təhlükəsizlik'),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.lock_rounded),
-              title: const Text('Şifrəni dəyiş'),
-              subtitle: const Text('Hesab şifrəsini yenilə'),
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => const _ChangePasswordDialog(),
-                );
-              },
+          if (canManageIntegrations) ...[
+            _buildSectionTitle(theme, 'İnteqrasiyalar'),
+            const SizedBox(height: AppTheme.spacing3),
+            _buildIntegrationCard(theme, integration),
+            const SizedBox(height: AppTheme.spacing4),
+          ],
+          if (canChangePassword) ...[
+            _buildSectionTitle(theme, 'Təhlükəsizlik'),
+            const SizedBox(height: AppTheme.spacing3),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.lock_rounded),
+                title: const Text('Şifrəni dəyiş'),
+                subtitle: const Text('Hesab şifrəsini yenilə'),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const _ChangePasswordDialog(),
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: AppTheme.spacing4),
+            const SizedBox(height: AppTheme.spacing4),
+          ],
           _buildSectionTitle(theme, 'Haqqında'),
           const SizedBox(height: AppTheme.spacing3),
           Card(

@@ -247,54 +247,60 @@ class _AppDrawer extends StatelessWidget {
             );
           }),
           const Divider(),
-          ListTile(
-            leading: const Icon(Icons.people_rounded),
-            title: const Text('İstifadəçilər'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.history_rounded),
-            title: const Text('Audit Jurnalı'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditLogScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.queue_rounded),
-            title: const Text('Növbə'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const QueueManagementScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.upload_file_rounded),
-            title: const Text('Fayl Yükləmə'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const FileUploadScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.backup_rounded),
-            title: const Text('Backup'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_rounded),
-            title: const Text('Bildirişlər'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
-            },
-          ),
+          if (auth.currentUser?.role == UserRole.admin) ...[
+            ListTile(
+              leading: const Icon(Icons.people_rounded),
+              title: const Text('İstifadəçilər'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history_rounded),
+              title: const Text('Audit Jurnalı'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditLogScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.backup_rounded),
+              title: const Text('Backup'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen()));
+              },
+            ),
+          ],
+          if (auth.hasAnyRole([UserRole.admin, UserRole.receptionist])) ...[
+            ListTile(
+              leading: const Icon(Icons.queue_rounded),
+              title: const Text('Növbə'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const QueueManagementScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload_file_rounded),
+              title: const Text('Fayl Yükləmə'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const FileUploadScreen()));
+              },
+            ),
+          ],
+          if (auth.hasAnyRole([UserRole.admin, UserRole.doctor, UserRole.receptionist])) ...[
+            ListTile(
+              leading: const Icon(Icons.notifications_rounded),
+              title: const Text('Bildirişlər'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              },
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.settings_rounded),
             title: const Text('Tənzimləmələr'),
