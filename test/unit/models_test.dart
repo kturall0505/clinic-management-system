@@ -8,11 +8,11 @@ void main() {
         username: 'test',
         passwordHash: 'hash',
         salt: 'salt',
-        role: UserRole.admin,
+        role: UserRole.clinicAdmin,
         fullName: 'Test User',
       );
       expect(user.username, 'test');
-      expect(user.role, UserRole.admin);
+      expect(user.role, UserRole.clinicAdmin);
     });
 
     test('throws on empty username', () {
@@ -45,7 +45,7 @@ void main() {
         () => Patient.create(
           fullName: 'Test',
           birthDate: DateTime.now().add(const Duration(days: 1)),
-          phone: '123',
+          phone: '+994501234567',
         ),
         throwsA(isA<ArgumentError>()),
       );
@@ -56,9 +56,29 @@ void main() {
         () => Patient.create(
           fullName: '',
           birthDate: DateTime(1990, 1, 1),
+          phone: '+994501234567',
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('throws on invalid phone number', () {
+      expect(
+        () => Patient.create(
+          fullName: 'Test',
+          birthDate: DateTime(1990, 1, 1),
           phone: '123',
         ),
         throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('accepts various Azerbaijan phone formats', () {
+      expect(() => Patient.create(fullName: 'Test', birthDate: DateTime(1990, 1, 1), phone: '+994501234567'), returnsNormally);
+      expect(() => Patient.create(fullName: 'Test', birthDate: DateTime(1990, 1, 1), phone: '994501234567'), returnsNormally);
+      expect(() => Patient.create(fullName: 'Test', birthDate: DateTime(1990, 1, 1), phone: '0501234567'), returnsNormally);
+    });
+  });        throwsA(isA<ArgumentError>()),
       );
     });
   });

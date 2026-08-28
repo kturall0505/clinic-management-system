@@ -2,6 +2,20 @@ import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
 
+bool isValidAzerbaijanPhone(String phone) {
+  final cleaned = phone.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
+  if (cleaned.startsWith('+')) {
+    return RegExp(r'^\+994(50|51|55|60|70|77|99)\d{7}$').hasMatch(cleaned);
+  }
+  if (cleaned.startsWith('994')) {
+    return RegExp(r'^994(50|51|55|60|70|77|99)\d{7}$').hasMatch(cleaned);
+  }
+  if (cleaned.startsWith('0')) {
+    return RegExp(r'^0(50|51|55|60|70|77|99)\d{7}$').hasMatch(cleaned);
+  }
+  return false;
+}
+
 enum UserRole { superAdmin, moderator, auditor, clinicAdmin, doctor, receptionist, patient }
 
 extension UserRoleExtension on UserRole {
@@ -382,6 +396,9 @@ class Patient {
     if (trimmedPhone.isEmpty) {
       throw ArgumentError('Telefon nömrəsi boş ola bilməz');
     }
+    if (!isValidAzerbaijanPhone(trimmedPhone)) {
+      throw ArgumentError('Düzgün telefon nömrəsi daxil edin (məs. +994501112233)');
+    }
     if (birthDate.isAfter(DateTime.now())) {
       throw ArgumentError('Doğum tarixi gələcəkdə ola bilməz');
     }
@@ -502,6 +519,9 @@ class Doctor {
     }
     if (trimmedPhone.isEmpty) {
       throw ArgumentError('Telefon nömrəsi boş ola bilməz');
+    }
+    if (!isValidAzerbaijanPhone(trimmedPhone)) {
+      throw ArgumentError('Düzgün telefon nömrəsi daxil edin (məs. +994501112233)');
     }
     if (consultationFee < 0) {
       throw ArgumentError('Konsultasiya haqqı mənfi ola bilməz');
