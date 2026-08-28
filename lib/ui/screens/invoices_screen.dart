@@ -358,6 +358,72 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   label: Text(_selectedPaymentMethod != null ? 'Ödənişli faktura yarat' : 'Faktura yarat'),
                 ),
               ),
+              const SizedBox(height: AppTheme.spacing4),
+              const Divider(),
+              const SizedBox(height: AppTheme.spacing2),
+              Text('Fakturalar', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: AppTheme.spacing2),
+              FutureBuilder(
+                future: invoiceRepo.all(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final invoices = snapshot.data as List<Invoice>? ?? [];
+                  if (invoices.isEmpty) {
+                    return Text('Hələ faktura yoxdur', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant));
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: invoices.length,
+                    itemBuilder: (context, index) {
+                      final inv = invoices[index];
+                      final statusColor = inv.status == 'paid' ? AppTheme.success : AppTheme.warning;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(AppTheme.spacing3),
+                          leading: CircleAvatar(
+                            backgroundColor: statusColor.withValues(alpha: 0.12),
+                            child: Icon(Icons.receipt_long_rounded, color: statusColor),
+                          ),
+                          title: Text('Pasient: ${inv.patientId}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text('${inv.netAmount.toStringAsFixed(2)} AZN • ${inv.status}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Fakturanı sil'),
+                                      content: const Text('Bu fakturanı silmək istədiyinizə əminsiniz?'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+                                        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await invoiceRepo.delete(inv.id);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Faktura silindi')));
+                                      setState(() {});
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ],
           ),
         ),

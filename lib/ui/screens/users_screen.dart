@@ -1,343 +1,366 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/services/connectivity_service.dart';
+import '../../core/repositories/repositories.dart';
+import '../../core/models/models.dart';
 import '../../core/services/auth_service.dart';
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+class UsersScreen extends StatefulWidget {
+  const UsersScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  State<UsersScreen> createState() => _UsersScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = true;
-  bool _darkMode = false;
-  String _selectedLanguage = 'az';
-  int _reminderMinutes = 60;
-  bool _isLoading = false;
+class _UsersScreenState extends State<UsersScreen> {
+  final _usernameController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  UserRole _selectedRole = UserRole.receptionist;
+  bool _isSaving = false;
+  String? _errorMessage;
+  String _searchQuery = '';
 
   @override
-  void initState() {
-    super.initState();
-    _loadSettings();
+  void dispose() {
+    _usernameController.dispose();
+    _fullNameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> _createUser() async {
+    if (_usernameController.text.isEmpty || _fullNameController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() => _errorMessage = 'Bütün sahələri doldurun');
+      return;
+    }
+
     setState(() {
-      _darkMode = prefs.getBool('dark_mode') ?? false;
-      _selectedLanguage = prefs.getString('language') ?? 'az';
-      _reminderMinutes = prefs.getInt('reminder_minutes') ?? 60;
-      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      _isSaving = true;
+      _errorMessage = null;
     });
-  }
 
-  Future<void> _saveSettings() async {
-    setState(() => _isLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('dark_mode', _darkMode);
-      await prefs.setString('language', _selectedLanguage);
-      await prefs.setInt('reminder_minutes', _reminderMinutes);
-      await prefs.setBool('notifications_enabled', _notificationsEnabled);
+      final auth = context.read<AuthService>();
+      await auth.register(
+        username: _usernameController.text,
+        password: _passwordController.text,
+        role: _selectedRole,
+        fullName: _fullNameController.text,
+      );
+
+      _usernameController.clear();
+      _fullNameController.clear();
+      _passwordController.clear();
+      setState(() => _selectedRole = UserRole.receptionist);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tənzimləmələr yadda saxlanıldı')),
+          const SnackBar(content: Text('İstifadəçi uğurla əlavə edildi')),
         );
       }
-    } catch (e) {
+    } on ValidationException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } on AuthException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } on Exception catch (e) {
+      setState(() => _errorMessage = 'Xəta: $e');
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _deleteUser(AppUser user) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('İstifadəçini sil'),
+        content: Text('${user.fullName} istifadəçisini silmək istədiyinizə əminsiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      final repo = context.read<UserRepository>();
+      await repo.delete(user.id);
+
+      await context.read<AuditLogRepository>().save(AuditLog.create(
+            userId: context.read<AuthService>().currentUser?.id ?? '',
+            userName: context.read<AuthService>().currentUser?.fullName ?? 'Unknown',
+            userRole: context.read<AuthService>().currentUser?.role ?? UserRole.admin,
+            action: AuditAction.delete,
+            entityType: 'User',
+            entityId: user.id,
+            entityName: user.username,
+          ));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İstifadəçi silindi')),
+        );
+        setState(() {});
+      }
+    } on Exception catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Xəta: $e')),
         );
       }
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final connectivity = context.watch<ConnectivityService>();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tənzimləmələr'),
+  Future<void> _resetPassword(AppUser user) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Şifrəni sıfırla'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${user.fullName} üçün yeni şifrə daxil edin'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: 'Yeni şifrə'),
+              obscureText: true,
+            ),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.save_rounded),
-            onPressed: _isLoading ? null : _saveSettings,
-            tooltip: 'Yadda saxla',
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppTheme.spacing4),
-        children: [
-          _buildSectionTitle(theme, 'Görünüş'),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: SwitchListTile(
-              title: const Text('Qaranlıq rejim'),
-              subtitle: const Text('Tətbiqin mövzusunu dəyişdir'),
-              value: _darkMode,
-              onChanged: (v) => setState(() => _darkMode = v),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: DropdownButtonFormTile(
-              title: 'Dil',
-              value: _selectedLanguage,
-              items: const [
-                DropdownMenuItem(value: 'az', child: Text('Azərbaycan')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-              ],
-              onChanged: (v) => setState(() => _selectedLanguage = v ?? 'az'),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing4),
-          _buildSectionTitle(theme, 'Bildirişlər'),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: SwitchListTile(
-              title: const Text('Bildirişləri aktiv et'),
-              subtitle: const Text('Randevu xatırlatmaları və digər bildirişlər'),
-              value: _notificationsEnabled,
-              onChanged: (v) => setState(() => _notificationsEnabled = v),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: ListTile(
-              title: const Text('Xatırlatma vaxtı'),
-              subtitle: Text('$_reminderMinutes dəqiqə əvvəl'),
-              trailing: DropdownButton<int>(
-                value: _reminderMinutes,
-                items: const [
-                  DropdownMenuItem(value: 15, child: Text('15 dəq')),
-                  DropdownMenuItem(value: 30, child: Text('30 dəq')),
-                  DropdownMenuItem(value: 60, child: Text('1 saat')),
-                  DropdownMenuItem(value: 120, child: Text('2 saat')),
-                  DropdownMenuItem(value: 1440, child: Text('1 gün')),
-                ],
-                onChanged: (v) => setState(() => _reminderMinutes = v ?? 60),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing4),
-          _buildSectionTitle(theme, 'Şəbəkə'),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: ListTile(
-              leading: Icon(
-                connectivity.currentStatus == ConnectionStatus.online ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                color: connectivity.currentStatus == ConnectionStatus.online ? AppTheme.success : AppTheme.error,
-              ),
-              title: Text(connectivity.currentStatus == ConnectionStatus.online ? 'Bağlı' : 'Bağlantı kəsilib'),
-              subtitle: Text(connectivity.currentStatus == ConnectionStatus.online ? 'Online rejim' : 'Offline rejim'),
-              trailing: TextButton.icon(
-                onPressed: () async {
-                  await connectivity.checkConnection();
-                  setState(() {});
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Yenilə'),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing4),
-          _buildSectionTitle(theme, 'Təhlükəsizlik'),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.lock_rounded),
-              title: const Text('Şifrəni dəyiş'),
-              subtitle: const Text('Hesab şifrəsini yenilə'),
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => const _ChangePasswordDialog(),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacing4),
-          _buildSectionTitle(theme, 'Haqqında'),
-          const SizedBox(height: AppTheme.spacing3),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.info_rounded),
-                  title: const Text('Versiya'),
-                  subtitle: Text('1.0.0'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.policy_rounded),
-                  title: const Text('Məxfilik siyasəti'),
-                  onTap: () {},
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.description_rounded),
-                  title: const Text('Xidmət şərtləri'),
-                  onTap: () {},
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.help_rounded),
-                  title: const Text('Kömək'),
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Sıfırla')),
         ],
       ),
     );
-  }
 
-  Widget _buildSectionTitle(ThemeData theme, String title) {
-    return Text(
-      title,
-      style: theme.textTheme.titleSmall?.copyWith(
-        color: theme.colorScheme.primary,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-}
+    if (result == null || result.isEmpty) return;
 
-class DropdownButtonFormTile extends StatelessWidget {
-  final String title;
-  final String? value;
-  final List<DropdownMenuItem<String>> items;
-  final ValueChanged<String?> onChanged;
-
-  const DropdownButtonFormTile({
-    required this.title,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        labelText: title,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      value: value,
-      items: items,
-      onChanged: onChanged,
-    );
-  }
-}
-
-class _ChangePasswordDialog extends StatefulWidget {
-  const _ChangePasswordDialog();
-
-  @override
-  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
-}
-
-class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
-  final _currentController = TextEditingController();
-  final _newController = TextEditingController();
-  final _confirmController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _changePassword() async {
-    if (_newController.text != _confirmController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yeni şifrələr uyğun deyil')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
     try {
       final auth = context.read<AuthService>();
-      final user = auth.currentUser;
-      if (user == null) return;
-
-      final currentHash = AuthService.hashPassword(_currentController.text, user.salt);
-      if (currentHash != user.passwordHash) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cari şifrə yanlışdır')),
-        );
-        return;
-      }
-
-      final newSalt = AuthService._generateSalt();
-      final newHash = AuthService.hashPassword(_newController.text, newSalt);
-      final updatedUser = user.copyWith(
-        passwordHash: newHash,
-        salt: newSalt,
-      );
+      final newSalt = AuthService.generateSalt();
+      final newHash = AuthService.hashPassword(result, newSalt);
+      final updatedUser = user.copyWith(passwordHash: newHash, salt: newSalt);
       await context.read<UserRepository>().save(updatedUser);
 
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Şifrə uğurla dəyişdirildi')),
+          const SnackBar(content: Text('Şifrə sıfırlandı')),
         );
       }
     } on Exception catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Xəta: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xəta: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Şifrəni dəyiş'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _currentController,
-            decoration: const InputDecoration(labelText: 'Cari şifrə'),
-            obscureText: true,
+    final theme = Theme.of(context);
+    final userRepo = context.read<UserRepository>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppTheme.spacing4),
+          child: Text(
+            'İstifadəçilər',
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _newController,
-            decoration: const InputDecoration(labelText: 'Yeni şifrə'),
-            obscureText: true,
+        ),
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppTheme.spacing3),
+              decoration: BoxDecoration(
+                color: AppTheme.errorContainer,
+                borderRadius: AppTheme.borderRadiusMedium,
+              ),
+              child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.error)),
+            ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _confirmController,
-            decoration: const InputDecoration(labelText: 'Yeni şifrə (təkrar)'),
-            obscureText: true,
+        Padding(
+          padding: const EdgeInsets.all(AppTheme.spacing4),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 700;
+              if (isWide) {
+                return Row(
+                  children: [
+                    Expanded(child: _buildTextField(_usernameController, 'İstifadəçi adı', Icons.person_outline)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(child: _buildTextField(_fullNameController, 'Ad Soyad', Icons.badge)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(
+                      child: DropdownButtonFormField<UserRole>(
+                        decoration: const InputDecoration(
+                          labelText: 'Rol',
+                          prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+                        ),
+                        value: _selectedRole,
+                        items: UserRole.values.map((r) => DropdownMenuItem(value: r, child: Text(r.label))).toList(),
+                        onChanged: (v) => setState(() => _selectedRole = v ?? UserRole.receptionist),
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.spacing2),
+                    Expanded(child: _buildTextField(_passwordController, 'Şifrə', Icons.lock_outline, TextInputType.visiblePassword)),
+                    const SizedBox(width: AppTheme.spacing2),
+                    FilledButton.icon(
+                      onPressed: _isSaving ? null : _createUser,
+                      icon: _isSaving
+                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.add_rounded),
+                      label: const Text('Əlavə et'),
+                    ),
+                  ],
+                );
+              }
+              return Wrap(
+                spacing: AppTheme.spacing2,
+                runSpacing: AppTheme.spacing2,
+                children: [
+                  SizedBox(width: 160, child: _buildTextField(_usernameController, 'İstifadəçi adı', Icons.person_outline)),
+                  SizedBox(width: 150, child: _buildTextField(_fullNameController, 'Ad Soyad', Icons.badge)),
+                  SizedBox(
+                    width: 140,
+                    child: DropdownButtonFormField<UserRole>(
+                      decoration: const InputDecoration(labelText: 'Rol', prefixIcon: Icon(Icons.admin_panel_settings_outlined), isDense: true),
+                      value: _selectedRole,
+                      items: UserRole.values.map((r) => DropdownMenuItem(value: r, child: Text(r.label))).toList(),
+                      onChanged: (v) => setState(() => _selectedRole = v ?? UserRole.receptionist),
+                    ),
+                  ),
+                  SizedBox(width: 130, child: _buildTextField(_passwordController, 'Şifrə', Icons.lock_outline, TextInputType.visiblePassword)),
+                  FilledButton.icon(
+                    onPressed: _isSaving ? null : _createUser,
+                    icon: _isSaving
+                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.add_rounded),
+                    label: const Text('Əlavə et'),
+                  ),
+                ],
+              );
+            },
           ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
-        FilledButton(
-          onPressed: _isLoading ? null : _changePassword,
-          child: _isLoading
-              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Dəyiş'),
+        ),
+        Expanded(
+          child: FutureBuilder(
+            future: userRepo.all(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline_rounded, size: 48, color: theme.colorScheme.error),
+                      const SizedBox(height: AppTheme.spacing3),
+                      Text('Xəta baş verdi', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                );
+              }
+
+              var users = snapshot.data as List<AppUser>? ?? [];
+
+              if (_searchQuery.isNotEmpty) {
+                users = users.where((u) => u.fullName.toLowerCase().contains(_searchQuery) || u.username.toLowerCase().contains(_searchQuery)).toList();
+              }
+
+              if (users.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline_rounded, size: 48, color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(height: AppTheme.spacing3),
+                      Text('İstifadəçi yoxdur', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'Axtarış...',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                      onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spacing2),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+                      itemCount: users.length,
+                      itemBuilder: (context, index) {
+                        final user = users[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(AppTheme.spacing3),
+                            leading: CircleAvatar(
+                              backgroundColor: theme.colorScheme.primaryContainer,
+                              child: Icon(Icons.person_rounded, color: theme.colorScheme.primary),
+                            ),
+                            title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Text('@${user.username} • ${user.role.label}'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.lock_reset_rounded, color: AppTheme.warning),
+                                  tooltip: 'Şifrəni sıfırla',
+                                  onPressed: () => _resetPassword(user),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                                  tooltip: 'Sil',
+                                  onPressed: () => _deleteUser(user),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, [TextInputType? keyboardType]) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        isDense: true,
+      ),
     );
   }
 }

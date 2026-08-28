@@ -27,8 +27,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
   String? _errorMessage;
   String _searchQuery = '';
 
-  Future<void> _addPatient() async {
-    if (_nameController.text.isEmpty) return;
+  Future<void> _addPatient({Patient? patient}) async {
+    final isEditing = patient != null;
+    if (!isEditing && _nameController.text.isEmpty) return;
 
     setState(() {
       _isSaving = true;
@@ -37,12 +38,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
     try {
       final repo = context.read<PatientRepository>();
-      final birthDate = DateTime.tryParse(_birthDateController.text);
-      if (birthDate == null) {
-        throw const ValidationException('Doğum tarixi düzgün formatda deyil (yyyy-MM-dd)');
-      }
+      final birthDate = DateTime.tryParse(_birthDateController.text) ?? patient!.birthDate;
 
-      await repo.save(Patient.create(
+      final newPatient = Patient.create(
+        id: patient?.id,
         fullName: _nameController.text,
         birthDate: birthDate,
         phone: _phoneController.text,
@@ -50,7 +49,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
         allergies: _allergiesController.text,
         chronicConditions: _chronicController.text,
         notes: _notesController.text,
-      ));
+      );
+
+      await repo.save(newPatient);
 
       _nameController.clear();
       _birthDateController.clear();
@@ -62,7 +63,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pasient uğurla əlavə edildi')),
+          SnackBar(content: Text(isEditing ? 'Pasient yeniləndi' : 'Pasient uğurla əlavə edildi')),
         );
       }
     } on ValidationException catch (e) {
@@ -71,6 +72,84 @@ class _PatientsScreenState extends State<PatientsScreen> {
       setState(() => _errorMessage = 'Xəta: $e');
     } finally {
       setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _editPatient(Patient patient) async {
+    _nameController.text = patient.fullName;
+    _birthDateController.text = DateFormat('yyyy-MM-dd').format(patient.birthDate);
+    _phoneController.text = patient.phone;
+    _finController.text = patient.fin ?? '';
+    _allergiesController.text = patient.allergies ?? '';
+    _chronicController.text = patient.chronicConditions ?? '';
+    _notesController.text = patient.notes ?? '';
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pasienti redaktə et'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(_nameController, 'Ad Soyad', Icons.person),
+              const SizedBox(height: 8),
+              _buildTextField(_birthDateController, 'Doğum (yyyy-MM-dd)', Icons.cake),
+              const SizedBox(height: 8),
+              _buildTextField(_phoneController, 'Telefon', Icons.phone),
+              const SizedBox(height: 8),
+              _buildTextField(_finController, 'FIN', Icons.badge),
+              const SizedBox(height: 8),
+              _buildTextField(_allergiesController, 'Allergiyalar', Icons.warning_amber),
+              const SizedBox(height: 8),
+              _buildTextField(_chronicController, 'Xroniki', Icons.health_and_safety),
+              const SizedBox(height: 8),
+              _buildTextField(_notesController, 'Qeydlər', Icons.note),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _addPatient(patient: patient);
+            },
+            child: Text(_isSaving ? 'Yenilənir...' : 'Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deletePatient(Patient patient) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pasienti sil'),
+        content: Text('${patient.fullName} pasientini silmək istədiyinizə əminsiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await context.read<PatientRepository>().delete(patient.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pasient silindi')),
+        );
+        setState(() {});
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xəta: $e')),
+        );
+      }
     }
   }
 
@@ -258,6 +337,19 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text('${patient.phone} • ${patient.age} yaş'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                            onPressed: () => _editPatient(patient),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                            onPressed: () => _deletePatient(patient),
+                          ),
+                        ],
+                      ),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

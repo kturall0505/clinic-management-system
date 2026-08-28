@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import 'appointment_detail_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -22,10 +23,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   bool _isBooking = false;
   String? _errorMessage;
 
-  Future<void> _bookAppointment() async {
+  Future<void> _bookAppointment({Appointment? appointment}) async {
+    final isEditing = appointment != null;
     if (_selectedPatientId == null || _selectedDoctorId == null) {
       setState(() => _errorMessage = 'Pasient və həkim seçin');
       return;
+    }
+
+    if (isEditing) {
+      _selectedPatientId = appointment.patientId;
+      _selectedDoctorId = appointment.doctorId;
+      _selectedDate = appointment.dateTime;
+      _selectedTime = TimeOfDay(hour: appointment.dateTime.hour, minute: appointment.dateTime.minute);
+      _reasonController.text = appointment.reason ?? '';
     }
 
     setState(() {
@@ -44,17 +54,21 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       );
 
       await repo.save(Appointment.create(
+        id: appointment?.id,
         patientId: _selectedPatientId!,
         doctorId: _selectedDoctorId!,
         dateTime: dateTime,
         reason: _reasonController.text,
+        status: appointment?.status ?? AppointmentStatus.scheduled,
       ));
 
       _reasonController.clear();
+      _selectedPatientId = null;
+      _selectedDoctorId = null;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Randevu uğurla yaradıldı')),
+          SnackBar(content: Text(isEditing ? 'Randevu yeniləndi' : 'Randevu uğurla yaradıldı')),
         );
       }
     } on ValidationException catch (e) {
@@ -63,6 +77,78 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       setState(() => _errorMessage = 'Xəta: $e');
     } finally {
       setState(() => _isBooking = false);
+    }
+  }
+
+  Future<void> _editAppointment(Appointment appt) async {
+    _selectedPatientId = appt.patientId;
+    _selectedDoctorId = appt.doctorId;
+    _selectedDate = appt.dateTime;
+    _selectedTime = TimeOfDay(hour: appt.dateTime.hour, minute: appt.dateTime.minute);
+    _reasonController.text = appt.reason ?? '';
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Randevunu redaktə et'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildPatientDropdown(context.read<PatientRepository>()),
+              const SizedBox(height: 8),
+              _buildDoctorDropdown(context.read<DoctorRepository>()),
+              const SizedBox(height: 8),
+              _buildDatePicker(),
+              const SizedBox(height: 8),
+              _buildTimePicker(),
+              const SizedBox(height: 8),
+              _buildReasonField(),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _bookAppointment(appointment: appt);
+            },
+            child: const Text('Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteAppointment(Appointment appt) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Randevunu sil'),
+        content: Text('Bu randevunu silmək istədiyinizə əminsiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await context.read<AppointmentRepository>().delete(appt.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Randevu silindi')),
+        );
+        setState(() {});
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xəta: $e')),
+        );
+      }
     }
   }
 
@@ -229,23 +315,40 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                               ],
                             ],
                           ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              appt.status.label,
+                              style: TextStyle(fontSize: 12, color: statusColor, fontWeight: FontWeight.w500),
+                            ),
+                          ),
                         ],
                       ),
                       isThreeLine: true,
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          appt.status.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: statusColor,
-                            fontWeight: FontWeight.w500,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AppointmentDetailScreen(appointmentId: appt.id),
                           ),
-                        ),
+                        );
+                      },
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                            onPressed: () => _editAppointment(appt),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                            onPressed: () => _deleteAppointment(appt),
+                          ),
+                        ],
                       ),
                     ),
                   );

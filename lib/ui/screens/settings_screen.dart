@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/settings_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,8 +15,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _darkMode = false;
-  String _selectedLanguage = 'az';
   int _reminderMinutes = 60;
   bool _isLoading = false;
 
@@ -27,11 +26,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
-      _darkMode = prefs.getBool('dark_mode') ?? false;
-      _selectedLanguage = prefs.getString('language') ?? 'az';
-      _reminderMinutes = prefs.getInt('reminder_minutes') ?? 60;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      _reminderMinutes = prefs.getInt('reminder_minutes') ?? 60;
     });
   }
 
@@ -39,10 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('dark_mode', _darkMode);
-      await prefs.setString('language', _selectedLanguage);
-      await prefs.setInt('reminder_minutes', _reminderMinutes);
       await prefs.setBool('notifications_enabled', _notificationsEnabled);
+      await prefs.setInt('reminder_minutes', _reminderMinutes);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -56,7 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -64,6 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final connectivity = context.watch<ConnectivityService>();
+    final settings = context.watch<SettingsProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -87,20 +84,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: SwitchListTile(
               title: const Text('Qaranlıq rejim'),
               subtitle: const Text('Tətbiqin mövzusunu dəyişdir'),
-              value: _darkMode,
-              onChanged: (v) => setState(() => _darkMode = v),
+              value: settings.themeMode == ThemeMode.dark,
+              onChanged: (v) {
+                settings.setThemeMode(v ? ThemeMode.dark : ThemeMode.system);
+              },
             ),
           ),
           const SizedBox(height: AppTheme.spacing3),
           Card(
-            child: DropdownButtonFormTile(
-              title: 'Dil',
-              value: _selectedLanguage,
-              items: const [
-                DropdownMenuItem(value: 'az', child: Text('Azərbaycan')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-              ],
-              onChanged: (v) => setState(() => _selectedLanguage = v ?? 'az'),
+            child: ListTile(
+              title: const Text('Dil'),
+              subtitle: Text(settings.locale.languageCode == 'az' ? 'Azərbaycan' : 'English'),
+              trailing: DropdownButton<String>(
+                value: settings.locale.languageCode,
+                items: const [
+                  DropdownMenuItem(value: 'az', child: Text('Azərbaycan')),
+                  DropdownMenuItem(value: 'en', child: Text('English')),
+                ],
+                onChanged: (v) {
+                  if (v != null) settings.setLocale(Locale(v));
+                },
+              ),
             ),
           ),
           const SizedBox(height: AppTheme.spacing4),
@@ -213,33 +217,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: theme.colorScheme.primary,
         fontWeight: FontWeight.w600,
       ),
-    );
-  }
-}
-
-class DropdownButtonFormTile extends StatelessWidget {
-  final String title;
-  final String? value;
-  final List<DropdownMenuItem<String>> items;
-  final ValueChanged<String?> onChanged;
-
-  const DropdownButtonFormTile({
-    required this.title,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        labelText: title,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      value: value,
-      items: items,
-      onChanged: onChanged,
     );
   }
 }

@@ -25,8 +25,9 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
   String? _errorMessage;
   String _searchQuery = '';
 
-  Future<void> _addDoctor() async {
-    if (_nameController.text.isEmpty) return;
+  Future<void> _addDoctor({Doctor? doctor}) async {
+    final isEditing = doctor != null;
+    if (!isEditing && _nameController.text.isEmpty) return;
 
     setState(() {
       _isSaving = true;
@@ -35,12 +36,10 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
 
     try {
       final repo = context.read<DoctorRepository>();
-      final fee = double.tryParse(_feeController.text);
-      if (fee == null || fee < 0) {
-        throw const ValidationException('Konsultasiya haqqı düzgün deyil');
-      }
+      final fee = double.tryParse(_feeController.text) ?? doctor!.consultationFee;
 
       await repo.save(Doctor.create(
+        id: doctor?.id,
         fullName: _nameController.text,
         specialty: _specialtyController.text,
         phone: _phoneController.text,
@@ -58,7 +57,7 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Həkim uğurla əlavə edildi')),
+          SnackBar(content: Text(isEditing ? 'Həkim yeniləndi' : 'Həkim uğurla əlavə edildi')),
         );
       }
     } on ValidationException catch (e) {
@@ -67,6 +66,81 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
       setState(() => _errorMessage = 'Xəta: $e');
     } finally {
       setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _editDoctor(Doctor doctor) async {
+    _nameController.text = doctor.fullName;
+    _specialtyController.text = doctor.specialty;
+    _phoneController.text = doctor.phone;
+    _feeController.text = doctor.consultationFee.toString();
+    _scheduleController.text = doctor.schedule ?? '';
+    _experienceController.text = doctor.experience ?? '';
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Həkimi redaktə et'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(_nameController, 'Ad Soyad', Icons.person),
+              const SizedBox(height: 8),
+              _buildTextField(_specialtyController, 'İxtisas', Icons.medical_services),
+              const SizedBox(height: 8),
+              _buildTextField(_phoneController, 'Telefon', Icons.phone),
+              const SizedBox(height: 8),
+              _buildTextField(_feeController, 'Haqq (AZN)', Icons.attach_money, TextInputType.number),
+              const SizedBox(height: 8),
+              _buildTextField(_experienceController, 'Təcrübə', Icons.work),
+              const SizedBox(height: 8),
+              _buildTextField(_scheduleController, 'Qrafik', Icons.schedule),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _addDoctor(doctor: doctor);
+            },
+            child: const Text('Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteDoctor(Doctor doctor) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Həkimi sil'),
+        content: Text('${doctor.fullName} həkimini silmək istədiyinizə əminsiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await context.read<DoctorRepository>().delete(doctor.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Həkim silindi')),
+        );
+        setState(() {});
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xəta: $e')),
+        );
+      }
     }
   }
 
@@ -283,6 +357,19 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
                         ],
                       ),
                       isThreeLine: true,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                            onPressed: () => _editDoctor(doctor),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                            onPressed: () => _deleteDoctor(doctor),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },

@@ -22,6 +22,8 @@ import 'screens/audit_log_screen.dart';
 import 'screens/queue_management_screen.dart';
 import 'screens/medical_history_screen.dart';
 import 'screens/file_upload_screen.dart';
+import 'screens/backup_screen.dart';
+import 'screens/notifications_screen.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key});
@@ -44,6 +46,19 @@ class HomeShell extends StatelessWidget {
         title: const Text('Tibb Klinika'),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.sync_rounded),
+            tooltip: 'Sinxronizasiya',
+            onPressed: () async {
+              final sync = context.read<SyncService>();
+              final scaffold = ScaffoldMessenger.of(context);
+              scaffold.showSnackBar(const SnackBar(content: Text('Sinxronizasiya başlayır...')));
+              final success = await sync.syncAll();
+              if (mounted) {
+                scaffold.showSnackBar(SnackBar(content: Text(success ? 'Sinxronizasiya uğurla tamamlandı' : 'Sinxronizasiya uğursuz oldu')));
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Çıxış',
@@ -283,6 +298,22 @@ class _AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const FileUploadScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.backup_rounded),
+            title: const Text('Backup'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications_rounded),
+            title: const Text('Bildirişlər'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
             },
           ),
           ListTile(

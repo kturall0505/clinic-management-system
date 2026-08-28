@@ -27,7 +27,8 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     super.dispose();
   }
 
-  Future<void> _addPrescription() async {
+  Future<void> _addPrescription({Prescription? prescription}) async {
+    final isEditing = prescription != null;
     if (_selectedAppointmentId == null) {
       setState(() => _errorMessage = 'Randevu seçin');
       return;
@@ -49,7 +50,8 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       final appointments = await appointmentRepo.all();
       final appointment = appointments.firstWhere((a) => a.id == _selectedAppointmentId);
 
-      final prescription = Prescription.create(
+      final newPrescription = Prescription.create(
+        id: prescription?.id,
         appointmentId: _selectedAppointmentId!,
         patientId: appointment.patientId,
         doctorId: appointment.doctorId,
@@ -57,24 +59,26 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         diagnosis: _diagnosisController.text,
         notes: _notesController.text,
       );
-      await prescriptionRepo.save(prescription);
+      await prescriptionRepo.save(newPrescription);
 
-      for (final med in _medications) {
-        final item = PrescriptionItem.create(
-          prescriptionId: prescription.id,
-          medicationId: med['id']!,
-          medicationName: med['name']!,
-          dosage: med['dosage'],
-          frequency: med['frequency'],
-          duration: med['duration'],
-          instructions: med['instructions'],
-        );
-        await prescriptionItemsRepo.save(item);
+      if (!isEditing) {
+        for (final med in _medications) {
+          final item = PrescriptionItem.create(
+            prescriptionId: newPrescription.id,
+            medicationId: med['id']!,
+            medicationName: med['name']!,
+            dosage: med['dosage'],
+            frequency: med['frequency'],
+            duration: med['duration'],
+            instructions: med['instructions'],
+          );
+          await prescriptionItemsRepo.save(item);
+        }
+
+        await appointmentRepo.save(appointment.copyWith(
+          status: AppointmentStatus.completed,
+        ));
       }
-
-      await appointmentRepo.save(appointment.copyWith(
-        status: AppointmentStatus.completed,
-      ));
 
       _selectedAppointmentId = null;
       _diagnosisController.clear();
@@ -83,13 +87,113 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Resept uğurla yaradıldı')),
+          SnackBar(content: Text(isEditing ? 'Resept yeniləndi' : 'Resept uğurla yaradıldı')),
         );
       }
     } on Exception catch (e) {
       setState(() => _errorMessage = 'Xəta: $e');
     } finally {
       setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _editPrescription(Prescription prescription) async {
+    _selectedAppointmentId = prescription.appointmentId;
+    _diagnosisController.text = prescription.diagnosis ?? '';
+    _notesController.text = prescription.notes ?? '';
+
+    final itemsRepo = context.read<PrescriptionItemRepository>();
+    final items = await itemsRepo.findByPrescriptionId(prescription.id);
+    _medications.clear();
+    for (final item in items) {
+      _medications.add({
+        'id': item.medicationId,
+        'name': item.medicationName,
+        'dosage': item.dosage ?? '',
+        'frequency': item.frequency ?? '',
+        'duration': item.duration ?? '',
+        'instructions': item.instructions ?? '',
+      });
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resepti redaktə et'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FutureBuilder(
+                future: context.read<AppointmentRepository>().all(),
+                builder: (context, snapshot) {
+                  final appointments = snapshot.data as List<Appointment>? ?? [];
+                  final scheduled = appointments.where((a) => a.status == AppointmentStatus.scheduled).toList();
+                  return DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'Randevu seçin', prefixIcon: Icon(Icons.event_note_rounded)),
+                    value: _selectedAppointmentId,
+                    items: scheduled.map((a) => DropdownMenuItem(value: a.id, child: Text('Pasient: ${a.patientId}'))).toList(),
+                    onChanged: (v) => setState(() => _selectedAppointmentId = v),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _diagnosisController,
+                decoration: const InputDecoration(labelText: 'Diaqnoz', prefixIcon: Icon(Icons.medical_information_rounded)),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Qeydlər', prefixIcon: Icon(Icons.note_rounded)),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _addPrescription(prescription: prescription);
+            },
+            child: const Text('Yadda saxla'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deletePrescription(Prescription prescription) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resepti sil'),
+        content: Text('Bu resepti silmək istədiyinizə əminsiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await context.read<PrescriptionRepository>().delete(prescription.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Resept silindi')),
+        );
+        setState(() {});
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xəta: $e')),
+        );
+      }
     }
   }
 
@@ -293,8 +397,58 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                   icon: _isSaving
                       ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.save_rounded),
-                  label: const Text('Resepti yadda saxla'),
+                  label: Text(_selectedAppointmentId != null && _isSaving == false && _diagnosisController.text.isNotEmpty ? 'Resepti yadda saxla' : 'Resepti yadda saxla'),
                 ),
+              ),
+              const SizedBox(height: AppTheme.spacing4),
+              const Divider(),
+              const SizedBox(height: AppTheme.spacing2),
+              Text('Reseptlər', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: AppTheme.spacing2),
+              FutureBuilder(
+                future: context.read<PrescriptionRepository>().all(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final prescriptions = snapshot.data as List<Prescription>? ?? [];
+                  if (prescriptions.isEmpty) {
+                    return Text('Hələ resept yoxdur', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant));
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: prescriptions.length,
+                    itemBuilder: (context, index) {
+                      final p = prescriptions[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(AppTheme.spacing3),
+                          leading: CircleAvatar(
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            child: Icon(Icons.medication_rounded, color: theme.colorScheme.primary),
+                          ),
+                          title: Text('Pasient: ${p.patientId}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text('Dərmanlar: ${p.medications}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                                onPressed: () => _editPrescription(p),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                                onPressed: () => _deletePrescription(p),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ],
           ),
