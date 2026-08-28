@@ -279,7 +279,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
         return;
       }
 
-      final newSalt = AuthService._generateSalt();
+      final newSalt = AuthService.generateSalt();
       final newHash = AuthService.hashPassword(_newController.text, newSalt);
       final updatedUser = user.copyWith(
         passwordHash: newHash,

@@ -32,6 +32,8 @@ class AuthService extends ChangeNotifier {
     return base64Encode(bytes);
   }
 
+  static String generateSalt() => _generateSalt();
+
   static String hashPassword(String password, String salt) =>
       sha256.convert(utf8.encode('$salt:$password')).toString();
 

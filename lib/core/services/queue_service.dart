@@ -55,8 +55,7 @@ class QueueService {
   }
 
   Future<void> markInProgress(QueueEntryRepository repo, String entryId) async {
-    final entries = await repo.all();
-    final entry = entries.firstWhereOrNull((e) => e.id == entryId);
+    final entry = await repo.findById(entryId);
     if (entry == null) return;
 
     await repo.save(entry.copyWith(
@@ -65,8 +64,7 @@ class QueueService {
   }
 
   Future<void> markCompleted(QueueEntryRepository repo, String entryId) async {
-    final entries = await repo.all();
-    final entry = entries.firstWhereOrNull((e) => e.id == entryId);
+    final entry = await repo.findById(entryId);
     if (entry == null) return;
 
     await repo.save(entry.copyWith(
@@ -76,8 +74,7 @@ class QueueService {
   }
 
   Future<void> markSkipped(QueueEntryRepository repo, String entryId) async {
-    final entries = await repo.all();
-    final entry = entries.firstWhereOrNull((e) => e.id == entryId);
+    final entry = await repo.findById(entryId);
     if (entry == null) return;
 
     await repo.save(entry.copyWith(

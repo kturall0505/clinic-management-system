@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
+import 'patient_detail_screen.dart';
 
 class PatientsScreen extends StatefulWidget {
   const PatientsScreen({super.key});
@@ -257,6 +258,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text('${patient.phone} • ${patient.age} yaş'),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PatientDetailScreen(patientId: patient.id),
+                          ),
+                        );
+                      },
                       children: [
                         Padding(
                           padding: const EdgeInsets.all(AppTheme.spacing4),

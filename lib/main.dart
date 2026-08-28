@@ -51,6 +51,7 @@ void main() async {
   final sync = SyncService(
     supabaseUrl: AppConfig.supabaseUrl,
     supabaseAnonKey: AppConfig.supabaseAnonKey,
+    tenantId: AppConfig.defaultTenantId,
   );
 
   final notificationService = NotificationService(
@@ -60,6 +61,12 @@ void main() async {
   unawaited(notificationService.initialize());
 
   final paymentService = PaymentService(
+    supabaseUrl: AppConfig.supabaseUrl,
+    supabaseAnonKey: AppConfig.supabaseAnonKey,
+    paymentRepo: payments,
+  );
+
+  final storageService = StorageService(
     supabaseUrl: AppConfig.supabaseUrl,
     supabaseAnonKey: AppConfig.supabaseAnonKey,
   );
@@ -109,6 +116,7 @@ void main() async {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: license),
         Provider.value(value: sync),
+        Provider.value(value: storageService),
         Provider.value(value: notificationService),
         Provider.value(value: paymentService),
         Provider.value(value: backupService),

@@ -5,8 +5,15 @@ import '../../core/theme/app_theme.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/models/models.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _retryKey = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -15,6 +22,7 @@ class DashboardScreen extends StatelessWidget {
     final appointmentsRepo = context.read<AppointmentRepository>();
 
     return FutureBuilder<List<dynamic>>(
+      key: ValueKey(_retryKey),
       future: Future.wait([
         patientsRepo.all(),
         doctorsRepo.all(),
@@ -29,9 +37,7 @@ class DashboardScreen extends StatelessWidget {
           return _ErrorState(
             message: 'Məlumatlar yüklənərkən xəta baş verdi',
             onRetry: () {
-              if (context.mounted) {
-                (context as Element).markNeedsBuild();
-              }
+              setState(() => _retryKey++);
             },
           );
         }

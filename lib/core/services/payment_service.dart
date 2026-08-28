@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../models/models.dart';
+import '../repositories/repositories.dart';
+
 class PaymentService {
   PaymentService({
     required this.supabaseUrl,
     required this.supabaseAnonKey,
+    this.paymentRepo,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
   final String supabaseUrl;
   final String supabaseAnonKey;
+  final PaymentRepository? paymentRepo;
   final http.Client _client;
 
   Future<Map<String, dynamic>?> createPaymentIntent({
@@ -44,7 +49,23 @@ class PaymentService {
   Future<bool> processCashPayment({
     required String appointmentId,
     required double amount,
+    required String patientId,
   }) async {
-    return Future.value(true);
+    if (amount <= 0) return false;
+    if (paymentRepo == null) return true;
+
+    try {
+      final payment = Payment.create(
+        appointmentId: appointmentId,
+        patientId: patientId,
+        amount: amount,
+        method: 'cash',
+        status: 'completed',
+      );
+      await paymentRepo!.save(payment);
+      return true;
+    } on Exception catch (_) {
+      return false;
+    }
   }
 }

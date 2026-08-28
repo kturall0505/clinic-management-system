@@ -253,6 +253,14 @@ class QueueEntryRepository {
     return items.where((q) => q.doctorId == doctorId).toList();
   }
 
+  Future<QueueEntry?> findById(String id) async {
+    final items = await _store.all();
+    for (final item in items) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
   Future<QueueEntry?> findActiveByPatientId(String patientId) async {
     final items = await _store.all();
     for (final item in items) {
