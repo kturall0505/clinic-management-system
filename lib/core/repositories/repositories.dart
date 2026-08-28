@@ -31,7 +31,14 @@ class PatientRepository {
 
   Future<void> save(Patient patient) => _store.put(patient.id, patient);
   Future<void> delete(String id) => _store.delete(id);
-  Future<List<Patient>> all() => _store.all();
+
+  Future<List<Patient>> all({String? clinicId, int? userLevel}) async {
+    final items = await _store.all();
+    if (userLevel != null && userLevel < 100 && clinicId != null) {
+      return items.where((p) => p.id.startsWith(clinicId)).toList();
+    }
+    return items;
+  }
 }
 
 class DoctorRepository {
