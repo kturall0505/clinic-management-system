@@ -183,6 +183,10 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
   Widget build(BuildContext context) {
     final repo = context.read<DoctorRepository>();
     final theme = Theme.of(context);
+    final auth = context.watch<AuthService>();
+    final canCreate = auth.hasAnyRole([UserRole.admin]);
+    final canEdit = auth.hasAnyRole([UserRole.admin]);
+    final canDelete = auth.hasAnyRole([UserRole.admin]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,7 +253,7 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
                     Expanded(child: _buildTextField(_experienceController, 'Təcrübə', Icons.work)),
                     const SizedBox(width: AppTheme.spacing2),
                     FilledButton.icon(
-                      onPressed: _isSaving ? null : _addDoctor,
+                      onPressed: canCreate && !_isSaving ? _addDoctor : null,
                       icon: _isSaving
                           ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.add_rounded),
@@ -395,14 +399,16 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
-                            onPressed: () => _editDoctor(doctor),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
-                            onPressed: () => _deleteDoctor(doctor),
-                          ),
+                          if (canEdit)
+                            IconButton(
+                              icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                              onPressed: () => _editDoctor(doctor),
+                            ),
+                          if (canDelete)
+                            IconButton(
+                              icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                              onPressed: () => _deleteDoctor(doctor),
+                            ),
                         ],
                       ),
                     ),

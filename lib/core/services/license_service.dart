@@ -83,6 +83,45 @@ class LicenseService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> validateLicenseKey(String licenseKey) async {
+    if (licenseKey.isEmpty || licenseServerUrl.isEmpty) {
+      return false;
+    }
+
+    try {
+      final uri = Uri.parse('$licenseServerUrl/validate');
+      final response = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'tenantId': tenantId,
+              'licenseKey': licenseKey,
+              'timestamp': DateTime.now().toIso8601String(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final valid = body['valid'] as bool? ?? false;
+        if (valid) {
+          _lastSuccess = DateTime.now();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_lastCheckKey, _lastSuccess!.toIso8601String());
+          _lastError = null;
+          _recomputeState();
+          notifyListeners();
+        }
+        return valid;
+      }
+      return false;
+    } on Exception catch (e) {
+      _lastError = 'Lisenziya təsdiqi xətası: $e';
+      return false;
+    }
+  }
+
   Future<bool> _sendHeartbeat() async {
     if (licenseServerUrl.isEmpty) {
       _lastError = 'Lisenziya server URL-i təyin edilməyib';

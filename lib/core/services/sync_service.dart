@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -18,6 +19,7 @@ class SyncService {
   final String supabaseAnonKey;
   final String? tenantId;
   final http.Client _client;
+  Timer? _pollingTimer;
 
   SyncStatus _lastStatus = SyncStatus.idle;
   String? _lastError;
@@ -26,6 +28,16 @@ class SyncService {
   SyncStatus get lastStatus => _lastStatus;
   String? get lastError => _lastError;
   DateTime? get lastSyncTime => _lastSyncTime;
+
+  void startPolling({Duration interval = const Duration(seconds: 30)}) {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(interval, (_) => syncIncremental());
+  }
+
+  void stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
 
   Future<bool> syncAll() async {
     if (supabaseUrl.isEmpty || tenantId == null) {
@@ -126,5 +138,10 @@ class SyncService {
     } on Exception catch (_) {
       return false;
     }
+  }
+
+  void dispose() {
+    _pollingTimer?.cancel();
+    _client.close();
   }
 }

@@ -183,6 +183,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
   Widget build(BuildContext context) {
     final repo = context.read<PatientRepository>();
     final theme = Theme.of(context);
+    final auth = context.watch<AuthService>();
+    final canCreate = auth.hasAnyRole([UserRole.admin, UserRole.receptionist]);
+    final canEdit = auth.hasAnyRole([UserRole.admin]);
+    final canDelete = auth.hasAnyRole([UserRole.admin]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +257,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     Expanded(child: _buildTextField(_notesController, 'Qeydlər', Icons.note)),
                     const SizedBox(width: AppTheme.spacing2),
                     FilledButton.icon(
-                      onPressed: _isSaving ? null : _addPatient,
+                      onPressed: canCreate && !_isSaving ? _addPatient : null,
                       icon: _isSaving
                           ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.add_rounded),
@@ -366,14 +370,16 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
-                            onPressed: () => _editPatient(patient),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
-                            onPressed: () => _deletePatient(patient),
-                          ),
+                          if (canEdit)
+                            IconButton(
+                              icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                              onPressed: () => _editPatient(patient),
+                            ),
+                          if (canDelete)
+                            IconButton(
+                              icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                              onPressed: () => _deletePatient(patient),
+                            ),
                         ],
                       ),
                       onTap: () {

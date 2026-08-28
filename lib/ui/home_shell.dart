@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/models.dart';
-import '../../core/repositories/repositories.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/license_service.dart';
 import 'screens/login_screen.dart';
@@ -52,84 +51,131 @@ class HomeShell extends StatelessWidget {
       return const SplashScreen();
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tibb Klinika'),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync_rounded),
-            tooltip: 'Sinxronizasiya',
-            onPressed: () async {
-              final sync = context.read<SyncService>();
-              final scaffold = ScaffoldMessenger.of(context);
-              scaffold.showSnackBar(const SnackBar(content: Text('Sinxronizasiya başlayır...')));
-              final success = await sync.syncAll();
-              if (mounted) {
-                scaffold.showSnackBar(SnackBar(content: Text(success ? 'Sinxronizasiya uğurla tamamlandı' : 'Sinxronizasiya uğursuz oldu')));
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Çıxış',
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Çıxış'),
-                  content: const Text('Hesabdan çıxmaq istədiyinizə əminsiniz?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
-                    FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Çıx')),
-                  ],
-                ),
-              );
-              if (confirm == true && context.mounted) {
-                context.read<AuthService>().logout();
-              }
-            },
-          ),
-        ],
+    final tabs = _getTabsForRole(auth.currentUser?.role);
+
+    return DefaultTabController(
+      length: tabs.length,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Tibb Klinika'),
+          centerTitle: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.sync_rounded),
+              tooltip: 'Sinxronizasiya',
+              onPressed: () async {
+                final sync = context.read<SyncService>();
+                final scaffold = ScaffoldMessenger.of(context);
+                scaffold.showSnackBar(const SnackBar(content: Text('Sinxronizasiya başlayır...')));
+                final success = await sync.syncAll();
+                if (mounted) {
+                  scaffold.showSnackBar(SnackBar(content: Text(success ? 'Sinxronizasiya uğurla tamamlandı' : 'Sinxronizasiya uğursuz oldu')));
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Çıxış',
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Çıxış'),
+                    content: const Text('Hesabdan çıxmaq istədiyinizə əminsiniz?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ləğv et')),
+                      FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Çıx')),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  context.read<AuthService>().logout();
+                }
+              },
+            ),
+          ],
+        ),
+        drawer: _AppDrawer(tabs: tabs),
+        body: _ShellBody(tabs: tabs),
+        bottomNavigationBar: _BottomNav(tabs: tabs),
       ),
-      drawer: const _AppDrawer(),
-      body: const _ShellBody(),
-      bottomNavigationBar: const _BottomNav(),
     );
   }
-}
 
-class _ShellBody extends StatelessWidget {
-  const _ShellBody();
-
-  @override
-  Widget build(BuildContext context) {
-    final tab = DefaultTabController.of(context)?.index ?? 0;
-    switch (tab) {
-      case 0:
-        return const DashboardScreen();
-      case 1:
-        return const DoctorsScreen();
-      case 2:
-        return const PatientsScreen();
-      case 3:
-        return const AppointmentsScreen();
-      case 4:
-        return const PrescriptionsScreen();
-      case 5:
-        return const InvoicesScreen();
-      case 6:
-        return const ReportsScreen();
-      case 7:
-        return const AssistantScreen();
+  List<TabInfo> _getTabsForRole(UserRole? role) {
+    switch (role) {
+      case UserRole.admin:
+        return const [
+          TabInfo('Panel', Icons.dashboard_rounded, DashboardScreen()),
+          TabInfo('Həkimlər', Icons.medical_services_rounded, DoctorsScreen()),
+          TabInfo('Pasientlər', Icons.people_rounded, PatientsScreen()),
+          TabInfo('Randevular', Icons.event_rounded, AppointmentsScreen()),
+          TabInfo('Resept', Icons.medication_rounded, PrescriptionsScreen()),
+          TabInfo('Faktura', Icons.receipt_long_rounded, InvoicesScreen()),
+          TabInfo('Hesabat', Icons.analytics_rounded, ReportsScreen()),
+          TabInfo('Assistent', Icons.smart_toy_rounded, AssistantScreen()),
+        ];
+      case UserRole.doctor:
+        return const [
+          TabInfo('Panel', Icons.dashboard_rounded, DashboardScreen()),
+          TabInfo('Randevular', Icons.event_rounded, AppointmentsScreen()),
+          TabInfo('Resept', Icons.medication_rounded, PrescriptionsScreen()),
+          TabInfo('Hesabat', Icons.analytics_rounded, ReportsScreen()),
+          TabInfo('Assistent', Icons.smart_toy_rounded, AssistantScreen()),
+        ];
+      case UserRole.receptionist:
+        return const [
+          TabInfo('Panel', Icons.dashboard_rounded, DashboardScreen()),
+          TabInfo('Pasientlər', Icons.people_rounded, PatientsScreen()),
+          TabInfo('Randevular', Icons.event_rounded, AppointmentsScreen()),
+          TabInfo('Faktura', Icons.receipt_long_rounded, InvoicesScreen()),
+          TabInfo('Növbə', Icons.queue_rounded, QueueManagementScreen()),
+          TabInfo('Assistent', Icons.smart_toy_rounded, AssistantScreen()),
+        ];
+      case UserRole.patient:
+        return const [
+          TabInfo('Panel', Icons.dashboard_rounded, DashboardScreen()),
+          TabInfo('Randevular', Icons.event_rounded, AppointmentsScreen()),
+          TabInfo('Resept', Icons.medication_rounded, PrescriptionsScreen()),
+          TabInfo('Faktura', Icons.receipt_long_rounded, InvoicesScreen()),
+        ];
       default:
-        return const DashboardScreen();
+        return const [
+          TabInfo('Panel', Icons.dashboard_rounded, DashboardScreen()),
+          TabInfo('Həkimlər', Icons.medical_services_rounded, DoctorsScreen()),
+          TabInfo('Pasientlər', Icons.people_rounded, PatientsScreen()),
+          TabInfo('Randevular', Icons.event_rounded, AppointmentsScreen()),
+          TabInfo('Resept', Icons.medication_rounded, PrescriptionsScreen()),
+          TabInfo('Faktura', Icons.receipt_long_rounded, InvoicesScreen()),
+          TabInfo('Hesabat', Icons.analytics_rounded, ReportsScreen()),
+          TabInfo('Assistent', Icons.smart_toy_rounded, AssistantScreen()),
+        ];
     }
   }
 }
 
+class TabInfo {
+  final String label;
+  final IconData icon;
+  final Widget screen;
+  const TabInfo(this.label, this.icon, this.screen);
+}
+
+class _ShellBody extends StatelessWidget {
+  final List<TabInfo> tabs;
+  const _ShellBody({required this.tabs});
+
+  @override
+  Widget build(BuildContext context) {
+    final tab = DefaultTabController.of(context)?.index ?? 0;
+    if (tab >= tabs.length) return const SizedBox.shrink();
+    return tabs[tab].screen;
+  }
+}
+
 class _BottomNav extends StatelessWidget {
-  const _BottomNav();
+  final List<TabInfo> tabs;
+  const _BottomNav({required this.tabs});
 
   @override
   Widget build(BuildContext context) {
@@ -137,48 +183,23 @@ class _BottomNav extends StatelessWidget {
       type: BottomNavigationBarType.fixed,
       currentIndex: DefaultTabController.of(context)?.index ?? 0,
       onTap: (index) {
-        DefaultTabController.of(context)?.animateTo(index);
+        if (index < tabs.length) {
+          DefaultTabController.of(context)?.animateTo(index);
+        }
       },
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.dashboard_rounded),
-          label: 'Panel',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.medical_services_rounded),
-          label: 'Həkimlər',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.people_rounded),
-          label: 'Pasientlər',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.event_rounded),
-          label: 'Randevular',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.medication_rounded),
-          label: 'Resept',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.receipt_long_rounded),
-          label: 'Faktura',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.analytics_rounded),
-          label: 'Hesabat',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.smart_toy_rounded),
-          label: 'Assistent',
-        ),
-      ],
+      items: tabs.map((tab) {
+        return BottomNavigationBarItem(
+          icon: Icon(tab.icon),
+          label: tab.label,
+        );
+      }).toList(),
     );
   }
 }
 
 class _AppDrawer extends StatelessWidget {
-  const _AppDrawer();
+  final List<TabInfo> tabs;
+  const _AppDrawer({required this.tabs});
 
   @override
   Widget build(BuildContext context) {
@@ -214,70 +235,17 @@ class _AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.dashboard_rounded),
-            title: const Text('Panel'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.medical_services_rounded),
-            title: const Text('Həkimlər'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people_rounded),
-            title: const Text('Pasientlər'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(2);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.event_rounded),
-            title: const Text('Randevular'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(3);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.medication_rounded),
-            title: const Text('Resept'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(4);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.receipt_long_rounded),
-            title: const Text('Faktura'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(5);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.analytics_rounded),
-            title: const Text('Hesabat'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(6);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.smart_toy_rounded),
-            title: const Text('Assistent'),
-            onTap: () {
-              DefaultTabController.of(context)?.animateTo(7);
-              Navigator.pop(context);
-            },
-          ),
+          ...tabs.map((tab) {
+            final index = tabs.indexOf(tab);
+            return ListTile(
+              leading: Icon(tab.icon),
+              title: Text(tab.label),
+              onTap: () {
+                DefaultTabController.of(context)?.animateTo(index);
+                Navigator.pop(context);
+              },
+            );
+          }),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.people_rounded),
