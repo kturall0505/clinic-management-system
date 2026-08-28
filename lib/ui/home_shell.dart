@@ -26,6 +26,7 @@ import 'screens/notifications_screen.dart';
 import 'screens/super_admin_dashboard_screen.dart';
 import 'screens/clinics_management_screen.dart';
 import 'screens/approvals_screen.dart';
+import 'screens/force_password_change_screen.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key});
@@ -52,6 +53,10 @@ class HomeShell extends StatelessWidget {
 
     if (!auth.isLoggedIn) {
       return const SplashScreen();
+    }
+
+    if (auth.requiresPasswordChange) {
+      return const ForcePasswordChangeScreen();
     }
 
     final role = auth.currentUser?.role;

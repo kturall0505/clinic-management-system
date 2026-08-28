@@ -28,6 +28,7 @@ class AuthService extends ChangeNotifier {
   String? get currentClinicId => _currentUser?.clinicId;
   bool get isSuperAdmin => _currentUser?.role == UserRole.superAdmin || _currentUser?.role == UserRole.moderator || _currentUser?.role == UserRole.auditor;
   bool get isClinicAdmin => _currentUser?.role == UserRole.clinicAdmin;
+  bool get requiresPasswordChange => _currentUser?.requiresPasswordChange ?? false;
 
   static String _generateSalt() {
     final random = Random.secure();
@@ -55,12 +56,17 @@ class AuthService extends ChangeNotifier {
     try {
       final existing = await _users.all();
       if (existing.isEmpty) {
+        final random = Random.secure();
+        final tempPassword = List<int>.generate(12, (_) => random.nextInt(36)).map((i) => 'abcdefghijklmnopqrstuvwxyz0123456789'[i]).join();
         await register(
           username: 'admin',
-          password: 'admin123',
+          password: tempPassword,
           role: UserRole.superAdmin,
           fullName: 'Super Admin',
+          requiresPasswordChange: true,
         );
+        debugPrint('SEED ADMIN CREATED - Username: admin, Temporary Password: $tempPassword');
+        debugPrint('IMPORTANT: Save this password securely. User must change it on first login.');
       }
     } on Exception catch (e) {
       debugPrint('Seed admin creation failed: $e');
