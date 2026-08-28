@@ -2,19 +2,44 @@ import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
 
-enum UserRole { admin, doctor, receptionist, patient }
+enum UserRole { superAdmin, moderator, auditor, clinicAdmin, doctor, receptionist, patient }
 
 extension UserRoleExtension on UserRole {
   String get label {
     switch (this) {
-      case UserRole.admin:
-        return 'Admin';
+      case UserRole.superAdmin:
+        return 'Super Admin';
+      case UserRole.moderator:
+        return 'Moderator';
+      case UserRole.auditor:
+        return 'Auditor';
+      case UserRole.clinicAdmin:
+        return 'Klinika Admini';
       case UserRole.doctor:
         return 'Həkim';
       case UserRole.receptionist:
         return 'Resepşn';
       case UserRole.patient:
         return 'Pasient';
+    }
+  }
+
+  int get level {
+    switch (this) {
+      case UserRole.superAdmin:
+        return 100;
+      case UserRole.moderator:
+        return 90;
+      case UserRole.auditor:
+        return 85;
+      case UserRole.clinicAdmin:
+        return 80;
+      case UserRole.doctor:
+        return 60;
+      case UserRole.receptionist:
+        return 40;
+      case UserRole.patient:
+        return 20;
     }
   }
 }
@@ -26,6 +51,11 @@ class AppUser {
   final String salt;
   final UserRole role;
   final String fullName;
+  final String? clinicId;
+  final bool isActive;
+  final DateTime? lastLogin;
+  final String? ipAddress;
+  final bool requiresPasswordChange;
   final DateTime createdAt;
 
   const AppUser({
@@ -35,6 +65,11 @@ class AppUser {
     required this.salt,
     required this.role,
     required this.fullName,
+    this.clinicId,
+    this.isActive = true,
+    this.lastLogin,
+    this.ipAddress,
+    this.requiresPasswordChange = false,
     required this.createdAt,
   });
 
@@ -45,6 +80,10 @@ class AppUser {
     required String salt,
     required UserRole role,
     required String fullName,
+    String? clinicId,
+    bool isActive = true,
+    String? ipAddress,
+    bool requiresPasswordChange = false,
   }) {
     final trimmedUsername = username.trim();
     final trimmedFullName = fullName.trim();
@@ -61,6 +100,10 @@ class AppUser {
       salt: salt,
       role: role,
       fullName: trimmedFullName,
+      clinicId: clinicId,
+      isActive: isActive,
+      ipAddress: ipAddress,
+      requiresPasswordChange: requiresPasswordChange,
       createdAt: DateTime.now(),
     );
   }
@@ -72,6 +115,11 @@ class AppUser {
         'salt': salt,
         'role': role.name,
         'fullName': fullName,
+        'clinicId': clinicId,
+        'isActive': isActive ? 1 : 0,
+        'lastLogin': lastLogin?.toIso8601String(),
+        'ipAddress': ipAddress,
+        'requiresPasswordChange': requiresPasswordChange ? 1 : 0,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -84,6 +132,11 @@ class AppUser {
       salt: map['salt'] as String,
       role: UserRole.values.byName(roleStr),
       fullName: map['fullName'] as String,
+      clinicId: map['clinicId'] as String?,
+      isActive: (map['isActive'] as int?) ?? 1 == 1,
+      lastLogin: map['lastLogin'] == null ? null : DateTime.tryParse(map['lastLogin'] as String),
+      ipAddress: map['ipAddress'] as String?,
+      requiresPasswordChange: (map['requiresPasswordChange'] as int?) ?? 0 == 1,
       createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
     );
   }
@@ -94,6 +147,11 @@ class AppUser {
     String? salt,
     UserRole? role,
     String? fullName,
+    String? clinicId,
+    bool? isActive,
+    DateTime? lastLogin,
+    String? ipAddress,
+    bool? requiresPasswordChange,
   }) {
     return AppUser(
       id: id,
@@ -102,6 +160,182 @@ class AppUser {
       salt: salt ?? this.salt,
       role: role ?? this.role,
       fullName: fullName ?? this.fullName,
+      clinicId: clinicId ?? this.clinicId,
+      isActive: isActive ?? this.isActive,
+      lastLogin: lastLogin ?? this.lastLogin,
+      ipAddress: ipAddress ?? this.ipAddress,
+      requiresPasswordChange: requiresPasswordChange ?? this.requiresPasswordChange,
+      createdAt: createdAt,
+    );
+  }
+}
+
+enum SubscriptionStatus { pending, active, expired, suspended }
+enum SubscriptionPlan { free, pro, enterprise }
+
+extension SubscriptionStatusExtension on SubscriptionStatus {
+  String get label {
+    switch (this) {
+      case SubscriptionStatus.pending:
+        return 'Gözləyir';
+      case SubscriptionStatus.active:
+        return 'Aktiv';
+      case SubscriptionStatus.expired:
+        return 'Müddəti bitib';
+      case SubscriptionStatus.suspended:
+        return 'Dayandırılıb';
+    }
+  }
+}
+
+extension SubscriptionPlanExtension on SubscriptionPlan {
+  String get label {
+    switch (this) {
+      case SubscriptionPlan.free:
+        return 'Free';
+      case SubscriptionPlan.pro:
+        return 'Pro';
+      case SubscriptionPlan.enterprise:
+        return 'Enterprise';
+    }
+  }
+
+  double get price {
+    switch (this) {
+      case SubscriptionPlan.free:
+        return 0;
+      case SubscriptionPlan.pro:
+        return 99;
+      case SubscriptionPlan.enterprise:
+        return 299;
+    }
+  }
+}
+
+class Clinic {
+  final String id;
+  final String name;
+  final String address;
+  final String phone;
+  final String email;
+  final SubscriptionStatus status;
+  final SubscriptionPlan plan;
+  final DateTime? trialEndsAt;
+  final DateTime? subscriptionEndsAt;
+  final String? approvedBy;
+  final DateTime? approvedAt;
+  final DateTime createdAt;
+
+  const Clinic({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.phone,
+    required this.email,
+    required this.status,
+    required this.plan,
+    this.trialEndsAt,
+    this.subscriptionEndsAt,
+    this.approvedBy,
+    this.approvedAt,
+    required this.createdAt,
+  });
+
+  factory Clinic.create({
+    String? id,
+    required String name,
+    required String address,
+    required String phone,
+    required String email,
+    SubscriptionStatus status = SubscriptionStatus.pending,
+    SubscriptionPlan plan = SubscriptionPlan.free,
+    DateTime? trialEndsAt,
+    DateTime? subscriptionEndsAt,
+    String? approvedBy,
+    DateTime? approvedAt,
+  }) {
+    final trimmedName = name.trim();
+    final trimmedEmail = email.trim();
+    if (trimmedName.isEmpty) {
+      throw ArgumentError('Klinika adı boş ola bilməz');
+    }
+    if (trimmedEmail.isEmpty) {
+      throw ArgumentError('Email boş ola bilməz');
+    }
+    return Clinic(
+      id: id ?? _uuid.v4(),
+      name: trimmedName,
+      address: address.trim(),
+      phone: phone.trim(),
+      email: trimmedEmail,
+      status: status,
+      plan: plan,
+      trialEndsAt: trialEndsAt,
+      subscriptionEndsAt: subscriptionEndsAt,
+      approvedBy: approvedBy,
+      approvedAt: approvedAt,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Map<String, Object?> toMap() => {
+        'id': id,
+        'name': name,
+        'address': address,
+        'phone': phone,
+        'email': email,
+        'status': status.name,
+        'plan': plan.name,
+        'trialEndsAt': trialEndsAt?.toIso8601String(),
+        'subscriptionEndsAt': subscriptionEndsAt?.toIso8601String(),
+        'approvedBy': approvedBy,
+        'approvedAt': approvedAt?.toIso8601String(),
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory Clinic.fromMap(Map<String, Object?> map) {
+    final statusStr = map['status'] as String? ?? 'pending';
+    final planStr = map['plan'] as String? ?? 'free';
+    return Clinic(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      address: map['address'] as String? ?? '',
+      phone: map['phone'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      status: SubscriptionStatus.values.byName(statusStr),
+      plan: SubscriptionPlan.values.byName(planStr),
+      trialEndsAt: map['trialEndsAt'] == null ? null : DateTime.tryParse(map['trialEndsAt'] as String),
+      subscriptionEndsAt: map['subscriptionEndsAt'] == null ? null : DateTime.tryParse(map['subscriptionEndsAt'] as String),
+      approvedBy: map['approvedBy'] as String?,
+      approvedAt: map['approvedAt'] == null ? null : DateTime.tryParse(map['approvedAt'] as String),
+      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+
+  Clinic copyWith({
+    String? name,
+    String? address,
+    String? phone,
+    String? email,
+    SubscriptionStatus? status,
+    SubscriptionPlan? plan,
+    DateTime? trialEndsAt,
+    DateTime? subscriptionEndsAt,
+    String? approvedBy,
+    DateTime? approvedAt,
+  }) {
+    return Clinic(
+      id: id,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      status: status ?? this.status,
+      plan: plan ?? this.plan,
+      trialEndsAt: trialEndsAt ?? this.trialEndsAt,
+      subscriptionEndsAt: subscriptionEndsAt ?? this.subscriptionEndsAt,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
       createdAt: createdAt,
     );
   }

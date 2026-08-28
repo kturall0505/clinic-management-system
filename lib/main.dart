@@ -45,6 +45,10 @@ void main() async {
   final notificationsRepo = AppNotificationRepository(db);
   final reportsRepo = ReportRepository(db);
   final backupRecords = BackupRecordRepository(db);
+  final clinics = ClinicRepository(db);
+  final approvals = ApprovalRepository(db);
+  final twoFactors = TwoFactorRepository(db);
+  final ipWhitelist = IpWhitelistRepository(db);
 
   final auditLogService = AuditLogService(
     supabaseUrl: AppConfig.supabaseUrl,
@@ -102,6 +106,15 @@ void main() async {
 
   final queueService = QueueService(tenantId: AppConfig.defaultTenantId);
 
+  final approvalService = ApprovalService(
+    approvals: approvals,
+    auditLogs: auditLogs,
+  );
+
+  final twoFactorService = TwoFactorService(twoFactors);
+
+  final ipWhitelistService = IpWhitelistService(ipWhitelist);
+
   final connectivityService = ConnectivityService();
   await connectivityService.initialize();
 
@@ -128,8 +141,15 @@ void main() async {
         Provider.value(value: notificationsRepo),
         Provider.value(value: reportsRepo),
         Provider.value(value: backupRecords),
+        Provider.value(value: clinics),
+        Provider.value(value: approvals),
+        Provider.value(value: twoFactors),
+        Provider.value(value: ipWhitelist),
         Provider.value(value: auditLogService),
         Provider.value(value: integrationSettings),
+        Provider.value(value: approvalService),
+        Provider.value(value: twoFactorService),
+        Provider.value(value: ipWhitelistService),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: license),
         ChangeNotifierProvider.value(value: settingsProvider),

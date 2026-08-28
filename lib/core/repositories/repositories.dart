@@ -79,6 +79,16 @@ class UserRepository {
     }
     return null;
   }
+
+  Future<List<AppUser>> findByClinicId(String clinicId) async {
+    final users = await _store.all();
+    return users.where((u) => u.clinicId == clinicId).toList();
+  }
+
+  Future<List<AppUser>> findSuperAdmins() async {
+    final users = await _store.all();
+    return users.where((u) => u.role.level >= 100).toList();
+  }
 }
 
 class PrescriptionRepository {
@@ -317,4 +327,321 @@ class BackupRecordRepository {
   Future<void> save(BackupRecord record) => _store.put(record.id, record);
   Future<void> delete(String id) => _store.delete(id);
   Future<List<BackupRecord>> all() => _store.all();
+}
+
+class ClinicRepository {
+  ClinicRepository(AppDatabase db)
+      : _store = _Store(db, 'clinics', Clinic.fromMap, (c) => c.toMap());
+
+  final _Store<Clinic> _store;
+
+  Future<void> save(Clinic clinic) => _store.put(clinic.id, clinic);
+  Future<void> delete(String id) => _store.delete(id);
+  Future<List<Clinic>> all() => _store.all();
+
+  Future<Clinic?> findById(String id) async {
+    final items = await _store.all();
+    return items.where((c) => c.id == id).firstOrNull;
+  }
+
+  Future<List<Clinic>> findPending() async {
+    final items = await _store.all();
+    return items.where((c) => c.status == SubscriptionStatus.pending).toList();
+  }
+
+  Future<List<Clinic>> findActive() async {
+    final items = await _store.all();
+    return items.where((c) => c.status == SubscriptionStatus.active).toList();
+  }
+}
+
+class ApprovalRepository {
+  ApprovalRepository(AppDatabase db)
+      : _store = _Store(db, 'approvals', ApprovalRequest.fromMap, (a) => a.toMap());
+
+  final _Store<ApprovalRequest> _store;
+
+  Future<void> save(ApprovalRequest request) => _store.put(request.id, request);
+  Future<void> delete(String id) => _store.delete(id);
+  Future<List<ApprovalRequest>> all() => _store.all();
+
+  Future<List<ApprovalRequest>> findPending() async {
+    final items = await _store.all();
+    return items.where((a) => a.status == ApprovalStatus.pending).toList();
+  }
+
+  Future<List<ApprovalRequest>> findByClinicId(String clinicId) async {
+    final items = await _store.all();
+    return items.where((a) => a.clinicId == clinicId).toList();
+  }
+}
+
+enum ApprovalStatus { pending, approved, rejected }
+
+class ApprovalRequest {
+  final String id;
+  final String clinicId;
+  final String requestedBy;
+  final ApprovalType type;
+  final Map<String, Object?> changes;
+  final ApprovalStatus status;
+  final String? reviewedBy;
+  final DateTime? reviewedAt;
+  final String? reviewNote;
+  final DateTime createdAt;
+
+  const ApprovalRequest({
+    required this.id,
+    required this.clinicId,
+    required this.requestedBy,
+    required this.type,
+    required this.changes,
+    required this.status,
+    this.reviewedBy,
+    this.reviewedAt,
+    this.reviewNote,
+    required this.createdAt,
+  });
+
+  factory ApprovalRequest.create({
+    String? id,
+    required String clinicId,
+    required String requestedBy,
+    required ApprovalType type,
+    required Map<String, Object?> changes,
+    ApprovalStatus status = ApprovalStatus.pending,
+  }) {
+    return ApprovalRequest(
+      id: id ?? _uuid.v4(),
+      clinicId: clinicId,
+      requestedBy: requestedBy,
+      type: type,
+      changes: changes,
+      status: status,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Map<String, Object?> toMap() => {
+        'id': id,
+        'clinicId': clinicId,
+        'requestedBy': requestedBy,
+        'type': type.name,
+        'changes': changes,
+        'status': status.name,
+        'reviewedBy': reviewedBy,
+        'reviewedAt': reviewedAt?.toIso8601String(),
+        'reviewNote': reviewNote,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory ApprovalRequest.fromMap(Map<String, Object?> map) {
+    final typeStr = map['type'] as String? ?? 'clinic_settings';
+    final statusStr = map['status'] as String? ?? 'pending';
+    return ApprovalRequest(
+      id: map['id'] as String,
+      clinicId: map['clinicId'] as String,
+      requestedBy: map['requestedBy'] as String,
+      type: ApprovalType.values.byName(typeStr),
+      changes: Map<String, Object?>.from(map['changes'] as Map? ?? {}),
+      status: ApprovalStatus.values.byName(statusStr),
+      reviewedBy: map['reviewedBy'] as String?,
+      reviewedAt: map['reviewedAt'] == null ? null : DateTime.tryParse(map['reviewedAt'] as String),
+      reviewNote: map['reviewNote'] as String?,
+      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+
+  ApprovalRequest copyWith({
+    String? clinicId,
+    String? requestedBy,
+    ApprovalType? type,
+    Map<String, Object?>? changes,
+    ApprovalStatus? status,
+    String? reviewedBy,
+    DateTime? reviewedAt,
+    String? reviewNote,
+  }) {
+    return ApprovalRequest(
+      id: id,
+      clinicId: clinicId ?? this.clinicId,
+      requestedBy: requestedBy ?? this.requestedBy,
+      type: type ?? this.type,
+      changes: changes ?? this.changes,
+      status: status ?? this.status,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewNote: reviewNote ?? this.reviewNote,
+      createdAt: createdAt,
+    );
+  }
+}
+
+enum ApprovalType { clinicSettings, userRoleChange, subscriptionChange, clinicDeletion }
+
+class TwoFactorRepository {
+  TwoFactorRepository(AppDatabase db)
+      : _store = _Store(db, 'two_factor', TwoFactorSecret.fromMap, (t) => t.toMap());
+
+  final _Store<TwoFactorSecret> _store;
+
+  Future<void> save(TwoFactorSecret secret) => _store.put(secret.userId, secret);
+  Future<void> delete(String userId) => _store.delete(userId);
+  Future<TwoFactorSecret?> findByUserId(String userId) async {
+    final items = await _store.all();
+    return items.where((t) => t.userId == userId).firstOrNull;
+  }
+}
+
+class TwoFactorSecret {
+  final String userId;
+  final String secretKey;
+  final bool isEnabled;
+  final DateTime? createdAt;
+  final DateTime? lastUsed;
+
+  const TwoFactorSecret({
+    required this.userId,
+    required this.secretKey,
+    this.isEnabled = true,
+    this.createdAt,
+    this.lastUsed,
+  });
+
+  factory TwoFactorSecret.create({
+    required String userId,
+    required String secretKey,
+    bool isEnabled = true,
+  }) {
+    return TwoFactorSecret(
+      userId: userId,
+      secretKey: secretKey,
+      isEnabled: isEnabled,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Map<String, Object?> toMap() => {
+        'userId': userId,
+        'secretKey': secretKey,
+        'isEnabled': isEnabled ? 1 : 0,
+        'createdAt': createdAt?.toIso8601String(),
+        'lastUsed': lastUsed?.toIso8601String(),
+      };
+
+  factory TwoFactorSecret.fromMap(Map<String, Object?> map) {
+    return TwoFactorSecret(
+      userId: map['userId'] as String,
+      secretKey: map['secretKey'] as String,
+      isEnabled: (map['isEnabled'] as int?) ?? 1 == 1,
+      createdAt: map['createdAt'] == null ? null : DateTime.tryParse(map['createdAt'] as String),
+      lastUsed: map['lastUsed'] == null ? null : DateTime.tryParse(map['lastUsed'] as String),
+    );
+  }
+
+  TwoFactorSecret copyWith({
+    String? secretKey,
+    bool? isEnabled,
+    DateTime? lastUsed,
+  }) {
+    return TwoFactorSecret(
+      userId: userId,
+      secretKey: secretKey ?? this.secretKey,
+      isEnabled: isEnabled ?? this.isEnabled,
+      createdAt: createdAt,
+      lastUsed: lastUsed ?? this.lastUsed,
+    );
+  }
+}
+
+class IpWhitelistRepository {
+  IpWhitelistRepository(AppDatabase db)
+      : _store = _Store(db, 'ip_whitelist', IpWhitelistEntry.fromMap, (i) => i.toMap());
+
+  final _Store<IpWhitelistEntry> _store;
+
+  Future<void> save(IpWhitelistEntry entry) => _store.put(entry.id, entry);
+  Future<void> delete(String id) => _store.delete(id);
+  Future<List<IpWhitelistEntry>> all() => _store.all();
+
+  Future<IpWhitelistEntry?> findByIp(String ip) async {
+    final items = await _store.all();
+    return items.where((i) => i.ipAddress == ip).firstOrNull;
+  }
+
+  Future<bool> isAllowed(String ip) async {
+    final entries = await _store.all();
+    return entries.any((e) => e.ipAddress == ip && e.isActive);
+  }
+}
+
+class IpWhitelistEntry {
+  final String id;
+  final String ipAddress;
+  final String label;
+  final bool isActive;
+  final String? createdBy;
+  final DateTime createdAt;
+
+  const IpWhitelistEntry({
+    required this.id,
+    required this.ipAddress,
+    required this.label,
+    this.isActive = true,
+    this.createdBy,
+    required this.createdAt,
+  });
+
+  factory IpWhitelistEntry.create({
+    String? id,
+    required String ipAddress,
+    required String label,
+    bool isActive = true,
+    String? createdBy,
+  }) {
+    return IpWhitelistEntry(
+      id: id ?? _uuid.v4(),
+      ipAddress: ipAddress,
+      label: label,
+      isActive: isActive,
+      createdBy: createdBy,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Map<String, Object?> toMap() => {
+        'id': id,
+        'ipAddress': ipAddress,
+        'label': label,
+        'isActive': isActive ? 1 : 0,
+        'createdBy': createdBy,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory IpWhitelistEntry.fromMap(Map<String, Object?> map) {
+    return IpWhitelistEntry(
+      id: map['id'] as String,
+      ipAddress: map['ipAddress'] as String,
+      label: map['label'] as String,
+      isActive: (map['isActive'] as int?) ?? 1 == 1,
+      createdBy: map['createdBy'] as String?,
+      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+
+  IpWhitelistEntry copyWith({
+    String? ipAddress,
+    String? label,
+    bool? isActive,
+    String? createdBy,
+  }) {
+    return IpWhitelistEntry(
+      id: id,
+      ipAddress: ipAddress ?? this.ipAddress,
+      label: label ?? this.label,
+      isActive: isActive ?? this.isActive,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt,
+    );
+  }
 }

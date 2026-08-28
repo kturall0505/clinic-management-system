@@ -25,6 +25,9 @@ class AuthService extends ChangeNotifier {
   AppUser? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
   bool get isLockedOut => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
+  String? get currentClinicId => _currentUser?.clinicId;
+  bool get isSuperAdmin => _currentUser?.role == UserRole.superAdmin || _currentUser?.role == UserRole.moderator || _currentUser?.role == UserRole.auditor;
+  bool get isClinicAdmin => _currentUser?.role == UserRole.clinicAdmin;
 
   static String _generateSalt() {
     final random = Random.secure();
@@ -55,8 +58,8 @@ class AuthService extends ChangeNotifier {
         await register(
           username: 'admin',
           password: 'admin123',
-          role: UserRole.admin,
-          fullName: 'Administrator',
+          role: UserRole.superAdmin,
+          fullName: 'Super Admin',
         );
       }
     } on Exception catch (e) {
@@ -69,6 +72,10 @@ class AuthService extends ChangeNotifier {
     required String password,
     required UserRole role,
     required String fullName,
+    String? clinicId,
+    bool isActive = true,
+    String? ipAddress,
+    bool requiresPasswordChange = false,
   }) async {
     final trimmedUsername = username.trim();
     final trimmedFullName = fullName.trim();
@@ -100,6 +107,10 @@ class AuthService extends ChangeNotifier {
       salt: salt,
       role: role,
       fullName: trimmedFullName,
+      clinicId: clinicId,
+      isActive: isActive,
+      ipAddress: ipAddress,
+      requiresPasswordChange: requiresPasswordChange,
     );
 
     try {
@@ -190,6 +201,17 @@ class AuthService extends ChangeNotifier {
   bool hasAnyRole(List<UserRole> roles) {
     if (_currentUser == null) return false;
     return roles.contains(_currentUser!.role);
+  }
+
+  bool hasMinimumLevel(int level) {
+    if (_currentUser == null) return false;
+    return _currentUser!.role.level >= level;
+  }
+
+  bool canAccessClinic(String clinicId) {
+    if (_currentUser == null) return false;
+    if (_currentUser!.role.level >= 100) return true;
+    return _currentUser!.clinicId == clinicId;
   }
 
   Future<void> _logAudit({
