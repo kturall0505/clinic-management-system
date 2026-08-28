@@ -23,6 +23,9 @@ import 'screens/medical_history_screen.dart';
 import 'screens/file_upload_screen.dart';
 import 'screens/backup_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/super_admin_dashboard_screen.dart';
+import 'screens/clinics_management_screen.dart';
+import 'screens/approvals_screen.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key});
@@ -51,7 +54,12 @@ class HomeShell extends StatelessWidget {
       return const SplashScreen();
     }
 
-    final tabs = _getTabsForRole(auth.currentUser?.role);
+    final role = auth.currentUser?.role;
+    if (role == UserRole.superAdmin || role == UserRole.moderator || role == UserRole.auditor) {
+      return const SuperAdminDashboardScreen();
+    }
+
+    final tabs = _getTabsForRole(role);
 
     return DefaultTabController(
       length: tabs.length,
@@ -104,7 +112,7 @@ class HomeShell extends StatelessWidget {
 
   List<TabInfo> _getTabsForRole(UserRole? role) {
     switch (role) {
-      case UserRole.admin:
+      case UserRole.clinicAdmin:
         return const [
           TabInfo('Panel', Icons.dashboard_rounded, DashboardScreen()),
           TabInfo('Həkimlər', Icons.medical_services_rounded, DoctorsScreen()),
@@ -247,33 +255,7 @@ class _AppDrawer extends StatelessWidget {
             );
           }),
           const Divider(),
-          if (auth.currentUser?.role == UserRole.admin) ...[
-            ListTile(
-              leading: const Icon(Icons.people_rounded),
-              title: const Text('İstifadəçilər'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen()));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.history_rounded),
-              title: const Text('Audit Jurnalı'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditLogScreen()));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.backup_rounded),
-              title: const Text('Backup'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen()));
-              },
-            ),
-          ],
-          if (auth.hasAnyRole([UserRole.admin, UserRole.receptionist])) ...[
+          if (auth.hasAnyRole([UserRole.clinicAdmin, UserRole.receptionist])) ...[
             ListTile(
               leading: const Icon(Icons.queue_rounded),
               title: const Text('Növbə'),
@@ -291,7 +273,7 @@ class _AppDrawer extends StatelessWidget {
               },
             ),
           ],
-          if (auth.hasAnyRole([UserRole.admin, UserRole.doctor, UserRole.receptionist])) ...[
+          if (auth.hasAnyRole([UserRole.clinicAdmin, UserRole.doctor, UserRole.receptionist])) ...[
             ListTile(
               leading: const Icon(Icons.notifications_rounded),
               title: const Text('Bildirişlər'),
