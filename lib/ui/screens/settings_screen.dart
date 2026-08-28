@@ -67,8 +67,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final auth = context.watch<AuthService>();
     final role = auth.currentUser?.role;
 
-    final canManageIntegrations = role == UserRole.admin;
-    final canChangePassword = auth.hasAnyRole([UserRole.admin, UserRole.doctor, UserRole.receptionist, UserRole.patient]);
+    final canManageIntegrations = auth.hasAnyRole([UserRole.superAdmin, UserRole.moderator, UserRole.auditor, UserRole.clinicAdmin]);
+    final canChangePassword = auth.hasAnyRole([UserRole.superAdmin, UserRole.moderator, UserRole.auditor, UserRole.clinicAdmin, UserRole.doctor, UserRole.receptionist, UserRole.patient]);
+    final canViewApprovals = role == UserRole.clinicAdmin;
 
     return Scaffold(
       appBar: AppBar(
@@ -238,6 +239,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
+            ),
+            const SizedBox(height: AppTheme.spacing4),
+          ],
+          if (canViewApprovals) ...[
+            _buildSectionTitle(theme, 'Gözləyən Təsdiqlər'),
+            const SizedBox(height: AppTheme.spacing3),
+            FutureBuilder(
+              future: context.read<ApprovalRepository>().findPending(),
+              builder: (context, snapshot) {
+                final pending = snapshot.data as List<ApprovalRequest>? ?? [];
+                if (pending.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spacing4),
+                      child: Text('Gözləyən təsdiq yoxdur', style: theme.textTheme.bodyMedium),
+                    ),
+                  );
+                }
+                return Column(
+                  children: pending.map((approval) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: AppTheme.spacing2),
+                      child: ListTile(
+                        title: Text(approval.type.name),
+                        subtitle: Text('Tarix: ${DateFormat('yyyy-MM-dd HH:mm').format(approval.createdAt)}'),
+                        trailing: const Icon(Icons.pending_rounded, color: AppTheme.warning),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
             ),
             const SizedBox(height: AppTheme.spacing4),
           ],
