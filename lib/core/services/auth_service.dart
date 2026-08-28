@@ -7,9 +7,10 @@ import 'package:flutter/foundation.dart';
 import '../exceptions/app_exception.dart';
 import '../models/models.dart';
 import '../repositories/repositories.dart';
+import 'password_hasher.dart';
 
 class AuthService extends ChangeNotifier {
-  static const int _minPasswordLength = 6;
+  static const int _minPasswordLength = 8;
   static const int _maxLoginAttempts = 5;
   static const Duration _lockoutDuration = Duration(minutes: 5);
 
@@ -38,18 +39,28 @@ class AuthService extends ChangeNotifier {
 
   static String generateSalt() => _generateSalt();
 
-  static String hashPassword(String password, String salt) =>
-      sha256.convert(utf8.encode('$salt:$password')).toString();
+  static String hashPassword(String password, String salt) {
+    final bytes = utf8.encode('$salt:$password');
+    return sha256.convert(bytes).toString();
+  }
+
+  static bool verifyPassword(String password, String salt, String hash) {
+    final bytes = utf8.encode('$salt:$password');
+    final expected = sha256.convert(bytes).toString();
+    return expected == hash;
+  }
 
   static bool isPasswordStrong(String password) {
     if (password.length < _minPasswordLength) return false;
     var hasLetter = false;
     var hasDigit = false;
+    var hasSpecial = false;
     for (final char in password.runes) {
       if (char >= 48 && char <= 57) hasDigit = true;
       if ((char >= 65 && char <= 90) || (char >= 97 && char <= 122)) hasLetter = true;
+      if ((char >= 33 && char <= 47) || (char >= 58 && char <= 64) || (char >= 91 && char <= 96) || (char >= 123 && char <= 126)) hasSpecial = true;
     }
-    return hasLetter && hasDigit;
+    return hasLetter && hasDigit && hasSpecial;
   }
 
   Future<void> ensureSeedAdmin() async {
@@ -94,7 +105,7 @@ class AuthService extends ChangeNotifier {
     }
     if (!isPasswordStrong(password)) {
       throw const ValidationException(
-        'Şifrə ən az 6 simvol olmalıdır və hərf və rəqəm ehtiva etməlidir',
+        'Şifrə ən az 8 simvol olmalıdır, hərf, rəqəm və xüsusi simvollardan ibarət olmalıdır',
       );
     }
     if (password.length > 72) {
@@ -107,9 +118,11 @@ class AuthService extends ChangeNotifier {
     }
 
     final salt = _generateSalt();
+    final passwordHash = PasswordHasher.hash(password);
+    
     final user = AppUser.create(
       username: trimmedUsername,
-      passwordHash: hashPassword(password, salt),
+      passwordHash: passwordHash,
       salt: salt,
       role: role,
       fullName: trimmedFullName,
@@ -156,7 +169,13 @@ class AuthService extends ChangeNotifier {
         return false;
       }
 
-      final isValid = hashPassword(password, user.salt) == user.passwordHash;
+      bool isValid;
+      if (user.passwordHash.startsWith('pbkdf2_sha256$')) {
+        isValid = PasswordHasher.verify(password, user.passwordHash);
+      } else {
+        isValid = verifyPassword(password, user.salt, user.passwordHash);
+      }
+      
       if (!isValid) {
         _handleFailedAttempt();
         return false;
