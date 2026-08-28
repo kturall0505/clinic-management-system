@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -8,10 +10,11 @@ import '../../exceptions/app_exception.dart';
 import '../models/models.dart';
 
 class AiService {
-  AiService({this.endpoint, http.Client? client})
+  AiService({this.endpoint, this.encryptionKey, http.Client? client})
       : _client = client ?? http.Client();
 
   final String? endpoint;
+  final String? encryptionKey;
   final http.Client _client;
 
   Future<String> ask(String question) async {
@@ -23,17 +26,18 @@ class AiService {
     final url = endpoint;
     if (url != null && url.isNotEmpty) {
       try {
+        final body = _buildEncryptedBody({'question': trimmed});
         final response = await _client
             .post(
               Uri.parse(url),
               headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'question': trimmed}),
+              body: body,
             )
             .timeout(const Duration(seconds: 20));
 
         if (response.statusCode == 200) {
-          final body = jsonDecode(response.body) as Map<String, dynamic>;
-          final answer = body['answer'];
+          final decoded = _decodeResponse(response.body);
+          final answer = decoded['answer'];
           if (answer is String && answer.isNotEmpty) {
             return answer;
           }
@@ -63,17 +67,18 @@ class AiService {
     final url = endpoint;
     if (url != null && url.isNotEmpty) {
       try {
+        final body = _buildEncryptedBody({'symptoms': trimmed});
         final response = await _client
             .post(
               Uri.parse('$url/icd10'),
               headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'symptoms': trimmed}),
+              body: body,
             )
             .timeout(const Duration(seconds: 20));
 
         if (response.statusCode == 200) {
-          final body = jsonDecode(response.body) as Map<String, dynamic>;
-          final codes = body['codes'];
+          final decoded = _decodeResponse(response.body);
+          final codes = decoded['codes'];
           if (codes is List) {
             return codes.map((e) => e.toString()).toList();
           }
@@ -90,17 +95,18 @@ class AiService {
     final url = endpoint;
     if (url != null && url.isNotEmpty) {
       try {
+        final body = _buildEncryptedBody({'medications': medications});
         final response = await _client
             .post(
               Uri.parse('$url/drug-interactions'),
               headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'medications': medications}),
+              body: body,
             )
             .timeout(const Duration(seconds: 20));
 
         if (response.statusCode == 200) {
-          final body = jsonDecode(response.body) as Map<String, dynamic>;
-          final interactions = body['interactions'];
+          final decoded = _decodeResponse(response.body);
+          final interactions = decoded['interactions'];
           if (interactions is List) {
             return interactions.map((e) => e.toString()).toList();
           }
@@ -109,6 +115,37 @@ class AiService {
     }
 
     return _offlineDrugInteractions(medications);
+  }
+
+  String _buildEncryptedBody(Map<String, dynamic> data) {
+    if (encryptionKey == null || encryptionKey!.isEmpty) {
+      return jsonEncode(data);
+    }
+    final plaintext = utf8.encode(jsonEncode(data));
+    final key = utf8.encode(encryptionKey!);
+    final hmac = Hmac(sha256, key);
+    final digest = hmac.convert(plaintext);
+    final payload = base64Encode(plaintext);
+    return jsonEncode({
+      'payload': payload,
+      'signature': digest.toString(),
+    });
+  }
+
+  Map<String, dynamic> _decodeResponse(String responseBody) {
+    final parsed = jsonDecode(responseBody) as Map<String, dynamic>;
+    if (encryptionKey == null || encryptionKey!.isEmpty) return parsed;
+    final payload = parsed['payload'] as String?;
+    final signature = parsed['signature'] as String?;
+    if (payload == null || signature == null) return parsed;
+    final key = utf8.encode(encryptionKey!);
+    final hmac = Hmac(sha256, key);
+    final expected = hmac.convert(base64Decode(payload)).toString();
+    if (expected != signature) {
+      throw const ValidationException('AI cavab doğrulanmadı');
+    }
+    final decoded = utf8.decode(base64Decode(payload));
+    return jsonDecode(decoded) as Map<String, dynamic>;
   }
 
   List<String> _offlineIcd10Suggestions(String symptoms) {
