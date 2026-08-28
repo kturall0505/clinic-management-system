@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import '../../core/services/ai_service.dart';
 
 class _ChatMessage {
   const _ChatMessage(this.text, {required this.fromUser});
-  final String text;
-  final bool fromUser;
+  final String text; final bool fromUser;
 }
 
 class AssistantScreen extends StatefulWidget {
@@ -16,7 +12,7 @@ class AssistantScreen extends StatefulWidget {
 
 class _AssistantScreenState extends State<AssistantScreen> {
   final _controller = TextEditingController();
-  final _messages = [_ChatMessage('Salam!', fromUser: false)];
+  final _messages = [_ChatMessage('Salam! Men komekciyem.', fromUser: false)];
   bool _thinking = false;
 
   @override void dispose() { _controller.dispose(); super.dispose(); }
@@ -34,40 +30,36 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _messages.length,
-            itemBuilder: (context, index) {
-              return Align(
-                alignment: _messages[index].fromUser ? Alignment.centerRight : Alignment.centerLeft,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  padding: const EdgeInsets.all(12),
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  decoration: BoxDecoration(
-                    color: _messages[index].fromUser ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(_messages[index].text),
+        Expanded(child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: _messages.length,
+          itemBuilder: (context, index) {
+            return Align(
+              alignment: _messages[index].fromUser ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(maxWidth: 480),
+                decoration: BoxDecoration(
+                  color: _messages[index].fromUser ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
-          ),
-        ),
+                child: Text(_messages[index].text),
+              ),
+            );
+          },
+        )),
         if (_thinking) const LinearProgressIndicator(),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(child: TextField(controller: _controller, decoration: const InputDecoration(hintText: 'Sualinizi yazin...'), onSubmitted: (_) => _send())),
-                const SizedBox(width: 8),
-                IconButton.filled(onPressed: _send, icon: const Icon(Icons.send), tooltip: 'Gonder'),
-              ],
-            ),
+        SafeArea(child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(child: TextField(controller: _controller, decoration: const InputDecoration(hintText: 'Sualinizi yazin...'), onSubmitted: (_) => _send())),
+              const SizedBox(width: 8),
+              IconButton.filled(onPressed: _send, icon: const Icon(Icons.send), tooltip: 'Gonder'),
+            ],
           ),
-        ),
+        )),
       ],
     );
   }

@@ -23,7 +23,7 @@ Future<void> main() async {
 }
 
 class ClinicApp extends StatelessWidget {
-  const ClinicApp({required this.db, required this.authService, required this.licenseService});
+  const ClinicApp({super.key, required this.db, required this.authService, required this.licenseService});
   final AppDatabase db; final AuthService authService; final LicenseService licenseService;
 
   @override Widget build(BuildContext context) {
@@ -36,7 +36,12 @@ class ClinicApp extends StatelessWidget {
         Provider(create: (_) => AppointmentRepository(db)),
         Provider(create: (_) => AiService(endpoint: AppConfig.aiEndpoint)),
       ],
-      child: MaterialApp(title: 'Klinika İdarəetmə Sistemi', debugShowCheckedModeBanner: false, theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal), useMaterial3: true), home: const _RootGate()),
+      child: MaterialApp(
+        title: 'Klinika',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal), useMaterial3: true),
+        home: const _RootGate(),
+      ),
     );
   }
 }
