@@ -194,26 +194,147 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> with Single
                 Icon(Icons.person_outline_rounded, size: 48, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(height: AppTheme.spacing3),
                 Text('Tibbi məlumat yoxdur', style: theme.textTheme.titleMedium),
+                const SizedBox(height: AppTheme.spacing2),
+                FilledButton.icon(
+                  onPressed: () => _showMedicalInfoForm(repo),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Əlavə et'),
+                ),
               ],
             ),
           );
         }
 
-        return ListView(
-          padding: const EdgeInsets.all(AppTheme.spacing4),
+        return Column(
           children: [
-            if (info.gender != null) _InfoRow(label: 'Cins', value: info.gender!.label),
-            if (info.bloodType != null) _InfoRow(label: 'Qan qrupu', value: info.bloodType!.label),
-            if (info.heightCm != null) _InfoRow(label: 'Boy', value: '${info.heightCm!.toStringAsFixed(1)} sm'),
-            if (info.weightKg != null) _InfoRow(label: 'Çəki', value: '${info.weightKg!.toStringAsFixed(1)} kq'),
-            if (info.bmi != null) _InfoRow(label: 'VTK', value: info.bmi!.toStringAsFixed(1)),
-            if (info.emergencyContact != null) _InfoRow(label: 'Təcili əlaqə', value: info.emergencyContact!),
-            if (info.emergencyContactPhone != null) _InfoRow(label: 'Təcili telefon', value: info.emergencyContactPhone!),
-            if (info.insuranceProvider != null) _InfoRow(label: 'Sığorta', value: info.insuranceProvider!),
-            if (info.insuranceNumber != null) _InfoRow(label: 'Sığorta nömrəsi', value: info.insuranceNumber!),
+            ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(AppTheme.spacing4),
+              children: [
+                if (info.gender != null) _InfoRow(label: 'Cins', value: info.gender!.label),
+                if (info.bloodType != null) _InfoRow(label: 'Qan qrupu', value: info.bloodType!.label),
+                if (info.heightCm != null) _InfoRow(label: 'Boy', value: '${info.heightCm!.toStringAsFixed(1)} sm'),
+                if (info.weightKg != null) _InfoRow(label: 'Çəki', value: '${info.weightKg!.toStringAsFixed(1)} kq'),
+                if (info.bmi != null) _InfoRow(label: 'VTK', value: info.bmi!.toStringAsFixed(1)),
+                if (info.emergencyContact != null) _InfoRow(label: 'Təcili əlaqə', value: info.emergencyContact!),
+                if (info.emergencyContactPhone != null) _InfoRow(label: 'Təcili telefon', value: info.emergencyContactPhone!),
+                if (info.insuranceProvider != null) _InfoRow(label: 'Sığorta', value: info.insuranceProvider!),
+                if (info.insuranceNumber != null) _InfoRow(label: 'Sığorta nömrəsi', value: info.insuranceNumber!),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+              child: FilledButton.icon(
+                onPressed: () => _showMedicalInfoForm(repo, info),
+                icon: const Icon(Icons.edit_rounded),
+                label: const Text('Redaktə et'),
+              ),
+            ),
           ],
         );
       },
+    );
+  }
+
+  Future<void> _showMedicalInfoForm(PatientMedicalInfoRepository repo, [PatientMedicalInfo? existing]) async {
+    final gender = existing?.gender ?? Gender.male;
+    final bloodType = existing?.bloodType;
+    final heightController = TextEditingController(text: existing?.heightCm?.toString() ?? '');
+    final weightController = TextEditingController(text: existing?.weightKg?.toString() ?? '');
+    final emergencyContactController = TextEditingController(text: existing?.emergencyContact ?? '');
+    final emergencyPhoneController = TextEditingController(text: existing?.emergencyContactPhone ?? '');
+    final insuranceProviderController = TextEditingController(text: existing?.insuranceProvider ?? '');
+    final insuranceNumberController = TextEditingController(text: existing?.insuranceNumber ?? '');
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(existing == null ? 'Tibbi məlumat əlavə et' : 'Tibbi məlumatı redaktə et'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<Gender>(
+                  decoration: const InputDecoration(labelText: 'Cins'),
+                  value: gender,
+                  items: Gender.values.map((g) => DropdownMenuItem(value: g, child: Text(g.label))).toList(),
+                  onChanged: (v) {},
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<BloodType>(
+                  decoration: const InputDecoration(labelText: 'Qan qrupu'),
+                  value: bloodType,
+                  items: BloodType.values.map((b) => DropdownMenuItem(value: b, child: Text(b.label))).toList(),
+                  onChanged: (v) {},
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: heightController,
+                  decoration: const InputDecoration(labelText: 'Boy (sm)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: weightController,
+                  decoration: const InputDecoration(labelText: 'Çəki (kq)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: emergencyContactController,
+                  decoration: const InputDecoration(labelText: 'Təcili əlaqə'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: emergencyPhoneController,
+                  decoration: const InputDecoration(labelText: 'Təcili telefon'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: insuranceProviderController,
+                  decoration: const InputDecoration(labelText: 'Sığorta şirkəti'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: insuranceNumberController,
+                  decoration: const InputDecoration(labelText: 'Sığorta nömrəsi'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Ləğv et')),
+            FilledButton(
+              onPressed: () async {
+                final height = double.tryParse(heightController.text);
+                final weight = double.tryParse(weightController.text);
+                final info = PatientMedicalInfo.create(
+                  id: existing?.id,
+                  patientId: widget.patientId,
+                  gender: gender,
+                  bloodType: bloodType,
+                  heightCm: height,
+                  weightKg: weight,
+                  emergencyContact: emergencyContactController.text,
+                  emergencyContactPhone: emergencyPhoneController.text,
+                  insuranceProvider: insuranceProviderController.text,
+                  insuranceNumber: insuranceNumberController.text,
+                );
+                await repo.save(info);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(existing == null ? 'Tibbi məlumat əlavə edildi' : 'Tibbi məlumat yeniləndi')),
+                  );
+                  setState(() {});
+                }
+              },
+              child: const Text('Yadda saxla'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

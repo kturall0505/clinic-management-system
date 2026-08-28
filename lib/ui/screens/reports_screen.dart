@@ -57,9 +57,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Xəta: $e')),
         );
-      }
-    } finally {
-      setState(() => _isGenerating = false);
+    }
+  } finally {
+    setState(() => _isGenerating = false);
+  }
+}
+
+  Future<void> _exportReport() async {
+    final report = _lastReport;
+    if (report == null) return;
+
+    final buffer = StringBuffer();
+    buffer.writeln('Hesabat: ${report.type.label}');
+    buffer.writeln('Tarix: ${DateFormat('yyyy-MM-dd').format(report.startDate)} - ${DateFormat('yyyy-MM-dd').format(report.endDate)}');
+    buffer.writeln('Yaradan: ${report.generatedBy}');
+    buffer.writeln('Tarix: ${DateFormat('yyyy-MM-dd HH:mm').format(report.createdAt)}');
+    buffer.writeln();
+    buffer.writeln('Xülasə:');
+    final summary = report.data['summary'] as Map<String, dynamic>? ?? {};
+    buffer.writeln('  Pasientlər: ${summary['total_patients'] ?? 0}');
+    buffer.writeln('  Randevular: ${summary['total_appointments'] ?? 0}');
+    buffer.writeln('  Tamamlanan: ${summary['completed_appointments'] ?? 0}');
+    buffer.writeln('  Ziyarətlər: ${summary['total_visits'] ?? 0}');
+    buffer.writeln();
+    buffer.writeln('Maliyyə:');
+    final financial = report.data['financial'] as Map<String, dynamic>? ?? {};
+    buffer.writeln('  Ümumi gəlir: ${(financial['total_revenue'] ?? 0).toStringAsFixed(2)} AZN');
+    buffer.writeln('  Fakturalar: ${financial['total_invoices'] ?? 0}');
+    buffer.writeln('  Ödənilən: ${financial['paid_invoices'] ?? 0}');
+    buffer.writeln('  Gözləyən: ${financial['pending_invoices'] ?? 0}');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hesabat eksport edildi (${buffer.length} bayt)')),
+      );
     }
   }
 
@@ -121,6 +152,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     : const Icon(Icons.refresh_rounded),
                 label: const Text('Yenilə'),
               ),
+              if (_lastReport != null) ...[
+                const SizedBox(width: AppTheme.spacing2),
+                IconButton.icon(
+                  onPressed: _exportReport,
+                  icon: const Icon(Icons.download_rounded),
+                  tooltip: 'Eksport',
+                ),
+              ],
             ],
           ),
         ),

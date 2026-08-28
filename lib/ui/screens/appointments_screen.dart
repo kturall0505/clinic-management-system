@@ -121,6 +121,113 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
+  void _showCalendarView() {
+    final appointmentRepo = context.read<AppointmentRepository>();
+    final patientRepo = context.read<PatientRepository>();
+    final doctorRepo = context.read<DoctorRepository>();
+    DateTime selectedMonth = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded),
+                onPressed: () {
+                  setDialogState(() {
+                    selectedMonth = DateTime(selectedMonth.year, selectedMonth.month - 1);
+                  });
+                },
+              ),
+              Expanded(
+                child: Text(DateFormat('MMMM yyyy', 'az').format(selectedMonth)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded),
+                onPressed: () {
+                  setDialogState(() {
+                    selectedMonth = DateTime(selectedMonth.year, selectedMonth.month + 1);
+                  });
+                },
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 350,
+            height: 400,
+            child: FutureBuilder(
+              future: appointmentRepo.all(),
+              builder: (context, snapshot) {
+                final appointments = snapshot.data as List<Appointment>? ?? [];
+                final firstDay = DateTime(selectedMonth.year, selectedMonth.month, 1);
+                final lastDay = DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
+                final daysInMonth = lastDay.day;
+                final firstWeekday = firstDay.weekday % 7;
+
+                final appointmentDates = <int>{};
+                for (final appt in appointments) {
+                  if (appt.dateTime.isAfter(firstDay.subtract(const Duration(days: 1))) &&
+                      appt.dateTime.isBefore(lastDay.add(const Duration(days: 1)))) {
+                    appointmentDates.add(appt.dateTime.day);
+                  }
+                }
+
+                return Column(
+                  children: [
+                    Row(
+                      children: ['Su', 'Sa', 'Ç', 'Pe', 'Cu', 'Ş', 'Ba']
+                          .map((d) => Expanded(child: Center(child: Text(d, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)))))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          mainAxisSpacing: 4,
+                          crossAxisSpacing: 4,
+                        ),
+                        itemCount: firstWeekday + daysInMonth,
+                        itemBuilder: (context, index) {
+                          if (index < firstWeekday) {
+                            return const SizedBox.shrink();
+                          }
+                          final day = index - firstWeekday + 1;
+                          final hasAppointment = appointmentDates.contains(day);
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: hasAppointment ? AppTheme.primary.withValues(alpha: 0.15) : null,
+                              borderRadius: BorderRadius.circular(8),
+                              border: hasAppointment ? Border.all(color: AppTheme.primary, width: 1) : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$day',
+                                style: TextStyle(
+                                  fontWeight: hasAppointment ? FontWeight.w700 : FontWeight.normal,
+                                  color: hasAppointment ? AppTheme.primary : null,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Bağla')),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteAppointment(Appointment appt) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -340,14 +447,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
-                            onPressed: () => _editAppointment(appt),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
-                            onPressed: () => _deleteAppointment(appt),
-                          ),
+              IconButton(
+                icon: const Icon(Icons.edit_rounded, color: AppTheme.primary),
+                onPressed: () => _editAppointment(appt),
+              ),
+              IconButton(
+                icon: const Icon(Icons.calendar_month_rounded, color: AppTheme.secondary),
+                onPressed: () => _showCalendarView(),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                onPressed: () => _deleteAppointment(appt),
+              ),
                         ],
                       ),
                     ),

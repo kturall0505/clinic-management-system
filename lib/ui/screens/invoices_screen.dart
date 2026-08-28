@@ -394,6 +394,24 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
+                                icon: const Icon(Icons.download_rounded, color: AppTheme.primary),
+                                onPressed: () {
+                                  final buffer = StringBuffer();
+                                  buffer.writeln('Faktura #${inv.id.substring(0, 8)}');
+                                  buffer.writeln('Pasient: ${inv.patientId}');
+                                  buffer.writeln('Randevu: ${inv.appointmentId}');
+                                  buffer.writeln('Məbləğ: ${inv.totalAmount.toStringAsFixed(2)} AZN');
+                                  buffer.writeln('Endirim: ${inv.discount.toStringAsFixed(2)} AZN');
+                                  buffer.writeln('Vergi: ${inv.tax.toStringAsFixed(2)} AZN');
+                                  buffer.writeln('Net: ${inv.netAmount.toStringAsFixed(2)} AZN');
+                                  buffer.writeln('Status: ${inv.status}');
+                                  buffer.writeln('Tarix: ${DateFormat('yyyy-MM-dd HH:mm').format(inv.createdAt)}');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Faktura eksport edildi (${buffer.length} bayt)')),
+                                  );
+                                },
+                              ),
+                              IconButton(
                                 icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
                                 onPressed: () async {
                                   final confirm = await showDialog<bool>(
