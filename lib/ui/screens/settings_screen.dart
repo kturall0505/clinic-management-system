@@ -188,6 +188,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ),
+            const SizedBox(height: AppTheme.spacing2),
+            Card(
+              child: FutureBuilder(
+                future: context.read<TwoFactorService>().isEnabled(auth.currentUser?.id ?? ''),
+                builder: (context, snapshot) {
+                  final isEnabled = snapshot.data ?? false;
+                  return SwitchListTile(
+                    title: const Text('İki Faktorlu Doğrulama (2FA)'),
+                    subtitle: Text(isEnabled ? 'Aktiv' : 'Deaktiv'),
+                    value: isEnabled,
+                    onChanged: (v) async {
+                      if (v) {
+                        final secret = await context.read<TwoFactorService>().generateSecret(auth.currentUser?.id ?? '');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('2FA aktivləşdirildi. Secret: $secret')),
+                          );
+                        }
+                      } else {
+                        await context.read<TwoFactorService>().disable(auth.currentUser?.id ?? '');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('2FA deaktiv edildi')),
+                          );
+                        }
+                      }
+                      setState(() {});
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacing4),
+          ],
+          if (auth.hasAnyRole([UserRole.superAdmin, UserRole.moderator, UserRole.auditor])) ...[
+            _buildSectionTitle(theme, 'IP Məhdudiyyəti'),
+            const SizedBox(height: AppTheme.spacing3),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.lan_rounded),
+                title: const Text('IP Whitelist'),
+                subtitle: const Text('Super Admin giriş IP-ləri'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const _IpWhitelistDialog(),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: AppTheme.spacing4),
           ],
           _buildSectionTitle(theme, 'Haqqında'),
@@ -640,6 +691,99 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
           child: _isLoading
               ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Text('Dəyiş'),
+        ),
+      ],
+    );
+  }
+}
+
+class _IpWhitelistDialog extends StatefulWidget {
+  const _IpWhitelistDialog();
+
+  @override
+  State<_IpWhitelistDialog> createState() => _IpWhitelistDialogState();
+}
+
+class _IpWhitelistDialogState extends State<_IpWhitelistDialog> {
+  final _ipController = TextEditingController();
+  final _labelController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ipWhitelistService = context.read<IpWhitelistService>();
+
+    return AlertDialog(
+      title: const Text('IP Whitelist'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _ipController,
+              decoration: const InputDecoration(labelText: 'IP Ünvanı'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _labelController,
+              decoration: const InputDecoration(labelText: 'Etiket'),
+            ),
+            const SizedBox(height: 16),
+            FutureBuilder(
+              future: ipWhitelistService.getAll(),
+              builder: (context, snapshot) {
+                final entries = snapshot.data as List<IpWhitelistEntry>? ?? [];
+                if (entries.isEmpty) {
+                  return const Text('IP yoxdur');
+                }
+                return Column(
+                  children: entries.map((entry) {
+                    return ListTile(
+                      dense: true,
+                      title: Text(entry.ipAddress),
+                      subtitle: Text(entry.label),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_rounded, color: AppTheme.error),
+                        onPressed: () async {
+                          await ipWhitelistService.removeIp(entry.ipAddress);
+                          setState(() {});
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Bağla')),
+        FilledButton(
+          onPressed: _isLoading ? null : () async {
+            if (_ipController.text.isEmpty || _labelController.text.isEmpty) return;
+            setState(() => _isLoading = true);
+            try {
+              await ipWhitelistService.addIp(_ipController.text, _labelController.text, 'admin');
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('IP əlavə edildi')),
+                );
+              }
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Xəta: $e')),
+              );
+            } finally {
+              setState(() => _isLoading = false);
+            }
+          },
+          child: _isLoading
+              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Əlavə et'),
         ),
       ],
     );
