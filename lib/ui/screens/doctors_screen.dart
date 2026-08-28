@@ -64,7 +64,7 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: isEditing ? AuditAction.update : AuditAction.create,
         entityType: 'Doctor',
         entityId: savedDoctor.id,
@@ -158,7 +158,7 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.delete,
         entityType: 'Doctor',
         entityId: doctor.id,
@@ -184,9 +184,9 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
     final repo = context.read<DoctorRepository>();
     final theme = Theme.of(context);
     final auth = context.watch<AuthService>();
-    final canCreate = auth.hasAnyRole([UserRole.admin]);
-    final canEdit = auth.hasAnyRole([UserRole.admin]);
-    final canDelete = auth.hasAnyRole([UserRole.admin]);
+    final canCreate = auth.hasAnyRole([UserRole.clinicAdmin]);
+    final canEdit = auth.hasAnyRole([UserRole.clinicAdmin]);
+    final canDelete = auth.hasAnyRole([UserRole.clinicAdmin]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

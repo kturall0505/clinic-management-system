@@ -67,7 +67,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.create,
         entityType: 'Invoice',
         entityId: invoice.id,
@@ -447,7 +447,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                     await audit.log(
                                       userId: auth.currentUser?.id ?? '',
                                       userName: auth.currentUser?.fullName ?? 'System',
-                                      userRole: auth.currentUser?.role ?? UserRole.admin,
+                                      userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
                                       action: AuditAction.delete,
                                       entityType: 'Invoice',
                                       entityId: inv.id,

@@ -42,7 +42,7 @@ class _BackupScreenState extends State<BackupScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.create,
         entityType: 'Backup',
         entityId: record.id,
@@ -91,7 +91,7 @@ class _BackupScreenState extends State<BackupScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.update,
         entityType: 'Backup',
         entityId: record.id,

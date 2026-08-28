@@ -43,6 +43,17 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> with Single
         notes: '',
       );
       await visitRepo.save(visit);
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
+        action: AuditAction.create,
+        entityType: 'MedicalVisit',
+        entityId: visit.id,
+        entityName: visit.patientId,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ziyarət əlavə edildi')),

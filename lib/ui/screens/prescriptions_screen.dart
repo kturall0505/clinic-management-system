@@ -68,7 +68,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: isEditing ? AuditAction.update : AuditAction.create,
         entityType: 'Prescription',
         entityId: newPrescription.id,
@@ -202,7 +202,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.delete,
         entityType: 'Prescription',
         entityId: prescription.id,

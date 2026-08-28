@@ -50,7 +50,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       final reportsRepo = context.read<ReportRepository>();
       await reportsRepo.save(report);
-
+      final auth = context.read<AuthService>();
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
+        action: AuditAction.create,
+        entityType: 'Report',
+        entityId: report.id,
+        entityName: report.type.label,
+      );
       setState(() => _lastReport = report);
     } on Exception catch (e) {
       if (mounted) {

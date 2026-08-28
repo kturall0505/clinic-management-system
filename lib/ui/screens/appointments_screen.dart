@@ -69,7 +69,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: isEditing ? AuditAction.update : AuditAction.create,
         entityType: 'Appointment',
         entityId: appointment?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -264,7 +264,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.delete,
         entityType: 'Appointment',
         entityId: appt.id,

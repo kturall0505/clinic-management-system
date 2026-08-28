@@ -167,10 +167,22 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                             icon: const Icon(Icons.queue_rounded),
                             label: const Text('Növbəyə əlavə et'),
                           ),
-                        if (appointment.status == AppointmentStatus.scheduled)
+                         if (appointment.status == AppointmentStatus.scheduled)
                           FilledButton.tonalIcon(
                             onPressed: () async {
                               await appointmentRepo.save(appointment.copyWith(status: AppointmentStatus.completed));
+                              final auth = context.read<AuthService>();
+                              final audit = context.read<AuditLogService>();
+                              await audit.log(
+                                userId: auth.currentUser?.id ?? '',
+                                userName: auth.currentUser?.fullName ?? 'System',
+                                userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
+                                action: AuditAction.update,
+                                entityType: 'Appointment',
+                                entityId: appointment.id,
+                                entityName: appointment.patientId,
+                                changes: {'status': 'completed'},
+                              );
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Randevu tamamlandı')));
                                 setState(() {});
@@ -183,6 +195,18 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                           FilledButton.tonalIcon(
                             onPressed: () async {
                               await appointmentRepo.save(appointment.copyWith(status: AppointmentStatus.cancelled));
+                              final auth = context.read<AuthService>();
+                              final audit = context.read<AuditLogService>();
+                              await audit.log(
+                                userId: auth.currentUser?.id ?? '',
+                                userName: auth.currentUser?.fullName ?? 'System',
+                                userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
+                                action: AuditAction.update,
+                                entityType: 'Appointment',
+                                entityId: appointment.id,
+                                entityName: appointment.patientId,
+                                changes: {'status': 'cancelled'},
+                              );
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Randevu ləğv edildi')));
                                 setState(() {});

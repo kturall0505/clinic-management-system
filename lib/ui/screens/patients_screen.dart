@@ -60,7 +60,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: isEditing ? AuditAction.update : AuditAction.create,
         entityType: 'Patient',
         entityId: newPatient.id,
@@ -158,7 +158,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.delete,
         entityType: 'Patient',
         entityId: patient.id,
@@ -184,9 +184,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
     final repo = context.read<PatientRepository>();
     final theme = Theme.of(context);
     final auth = context.watch<AuthService>();
-    final canCreate = auth.hasAnyRole([UserRole.admin, UserRole.receptionist]);
-    final canEdit = auth.hasAnyRole([UserRole.admin]);
-    final canDelete = auth.hasAnyRole([UserRole.admin]);
+    final canCreate = auth.hasAnyRole([UserRole.clinicAdmin, UserRole.receptionist]);
+    final canEdit = auth.hasAnyRole([UserRole.clinicAdmin]);
+    final canDelete = auth.hasAnyRole([UserRole.clinicAdmin]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

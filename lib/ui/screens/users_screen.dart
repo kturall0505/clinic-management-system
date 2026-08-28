@@ -55,7 +55,7 @@ class _UsersScreenState extends State<UsersScreen> {
       await audit.log(
         userId: auth.currentUser?.id ?? '',
         userName: auth.currentUser?.fullName ?? 'System',
-        userRole: auth.currentUser?.role ?? UserRole.admin,
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.create,
         entityType: 'User',
         entityName: _usernameController.text,
@@ -105,7 +105,7 @@ class _UsersScreenState extends State<UsersScreen> {
       await audit.log(
         userId: context.read<AuthService>().currentUser?.id ?? '',
         userName: context.read<AuthService>().currentUser?.fullName ?? 'Unknown',
-        userRole: context.read<AuthService>().currentUser?.role ?? UserRole.admin,
+        userRole: context.read<AuthService>().currentUser?.role ?? UserRole.clinicAdmin,
         action: AuditAction.delete,
         entityType: 'User',
         entityId: user.id,
@@ -160,6 +160,17 @@ class _UsersScreenState extends State<UsersScreen> {
       final newHash = AuthService.hashPassword(result, newSalt);
       final updatedUser = user.copyWith(passwordHash: newHash, salt: newSalt);
       await context.read<UserRepository>().save(updatedUser);
+      final audit = context.read<AuditLogService>();
+      await audit.log(
+        userId: auth.currentUser?.id ?? '',
+        userName: auth.currentUser?.fullName ?? 'System',
+        userRole: auth.currentUser?.role ?? UserRole.clinicAdmin,
+        action: AuditAction.update,
+        entityType: 'User',
+        entityId: user.id,
+        entityName: user.username,
+        changes: {'passwordReset': true},
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
