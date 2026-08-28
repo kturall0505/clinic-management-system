@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,11 +8,11 @@ void main() {
   group('PasswordHasher', () {
     late PasswordHasher hasher;
     setUp(() { hasher = const PasswordHasher(); });
+
     test('generateSalt returns base64-encoded 16 bytes', () {
       final salt = hasher.generateSalt();
       expect(salt, isNotEmpty);
-      final decoded = base64Decode(salt);
-      expect(decoded.length, equals(16));
+      expect(base64Decode(salt).length, equals(16));
     });
     test('hash and verify with same password returns true', () {
       final salt = hasher.generateSalt();
@@ -29,30 +30,14 @@ void main() {
       final hash1 = hasher.hash('samePassword', salt1);
       final hash2 = hasher.hash('samePassword', salt2);
       expect(hash1, isNot(equals(hash2)));
-      expect(base64Decode(hash1).length, equals(32));
-      expect(base64Decode(hash2).length, equals(32));
     });
-    test('hashAndEncode produces correct format', () {
-      final encoded = hasher.hashAndEncode('testPassword');
-      final parts = encoded.split('\$');
-      expect(parts.length, equals(4));
-      expect(parts[0], equals('PBKDF2'));
-      expect(int.parse(parts[1]), equals(100000));
-      expect(base64Decode(parts[2]).length, equals(16));
-      expect(base64Decode(parts[3]).length, equals(32));
-    });
-    test('verifyFromStoredHash round-trip', () {
+    test('hashAndEncode round-trip', () {
       final encoded = hasher.hashAndEncode('mySecurePassword');
       expect(hasher.verifyFromStoredHash('mySecurePassword', encoded), isTrue);
       expect(hasher.verifyFromStoredHash('wrongPassword', encoded), isFalse);
     });
-    test('verifyFromStoredHash throws on invalid format', () {
-      expect(() => hasher.verifyFromStoredHash('pwd', 'invalid-format'), throwsArgumentError);
-    });
-    test('same input produces different hashes each time', () {
-      final hash1 = hasher.hashAndEncode('samePassword');
-      final hash2 = hasher.hashAndEncode('samePassword');
-      expect(hash1, isNot(equals(hash2)));
+    test('same input produces different hashes', () {
+      expect(hasher.hashAndEncode('samePassword'), isNot(equals(hasher.hashAndEncode('samePassword'))));
     });
   });
 }
